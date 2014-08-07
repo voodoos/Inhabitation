@@ -50,10 +50,10 @@ let rec contextualize c t = match c with
   | AppRight(t2, c2) -> App(t2, contextualize c2 t)
 
 (* Types *)
-type sType = 
+type multisetType = sType multiset
+and sType = 
   Var of char
 | Fleche of multisetType * multisetType
-and multisetType = sType multiset
 
 type environment = (char * multisetType) list
 
@@ -82,7 +82,20 @@ let envExtracts (env : environment) =
   aux [] env
 
 let test4 = envExtracts [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));]
-  
+
+(* Fussionne deux environnements *)
+let rec envFusion (env0 : environment) (env1 : environment) = 
+  let rec aux elt acc = function 
+      [] -> elt::acc
+    | (x, type0)::tl when x = fst(elt) -> acc@((x, concat type0 (snd(elt)))::tl)
+    | h::tl -> aux elt (h::acc) tl
+
+  in match env0 with
+    [] -> env1
+  | h::t -> envFusion t (aux h [] env1)
+
+let test5 = envFusion [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));] [('x', Cons(Var('c'), Empty))]
+
 (* Approximate normal forms *)
 type anf = 
   TheEnd
@@ -106,38 +119,57 @@ let inhabitation (env: environment) (type0 : multisetType) =
     | (_::_, Cons(Fleche(type1, type2), Empty)) -> (abs env fresh type1 type2)@(head env type0)
       (* head *)
     | (_::_, _) -> head env type0
-    | (_,_) -> [TheEnd]
+    | (_,_) -> []
 
 
   and abs env fresh type0 type1 = 
     (* On prend une variable fraiche et on appelle récursivement t *)
-    t ((List.hd fresh, type0)::env) type1 (List.tl fresh)
+    List.map (fun elt -> Lambda(List.hd fresh, elt)) (t ((List.hd fresh, type0)::env) type1 (List.tl fresh))
 
   and head env type0 = 
+    (* On regarde toutes les extractions possible d'un couple var / type *)
     let extracts = envExtracts env in
 
     (* On applique (head) pour chaque extract ( ->  ((x, [type]), envTail) ) *)
-    List.concat (List.map (fun extract -> h (snd(extract)) [fst(extract)] (N(L(Var(fst(fst(extract)))))) (snd(fst(extract))) type0) extracts)
+    List.concat 
+      (List.map 
+	 (fun extract -> h (snd(extract)) [fst(extract)] (Var(fst(fst(extract)))) (snd(fst(extract))) type0) 
+	extracts)
     
-  and h (env1 : environment) (env2 : environment) (anf : anf) type1 type2 = match env2, type1 with
+  and h (env1 : environment) (env2 : environment) (lf : l) type1 type2 = match env2, type1 with
     (* Final + Prefix *)
-      ([], Cons(Fleche(typeA, typeS), Empty)) -> (final type1 type2 anf)@(prefix env1 env2 anf typeA typeS type2)
+      ([], Cons(Fleche(typeA, typeS), Empty)) -> (final type1 type2 lf)@(prefix env1 env2 lf typeA typeS type2)
     (* Final *)
-    | ([], type1) -> final type1 type2 anf
+    | ([], type1) -> final type1 type2 lf
     (* Prefix *)
-    | (_, Cons(Fleche(typeA, typeS), Empty)) -> prefix env1 env2 anf typeA typeS type2
-    | (_, _) -> [TheEnd]
+    | (_, Cons(Fleche(typeA, typeS), Empty)) -> prefix env1 env2 lf typeA typeS type2
+    | (_, _) -> []
 
-  and final type1 type2 anf = if type1 = type2  then [anf] else [TheEnd]
+  and final type1 type2 lf = if type1 = type2  then [L(lf)] else []
 
-  and prefix env1 env2 (anf : anf) type1 type2 type3 = 
-    let envs = envSplits env in
+  and prefix env1 env2 (lf : l) type1 type2 type3 = 
+    let decoupes = envSplits env in
     (* Pour chaque découpage possible, on cherche les termes que trouve TI puis on appelle h *)
-    assert false
+    
+    List.concat (List.map (fun envs -> 
+	let (env20, env21) = envs in
+        (* On appelle ti, et pour chaque résultat de ti on appelle h *)
+	let res = N(L(Var('m'))) in (*ti env20 type2 in*)
 
-  and ti = assert false
+	h (envFusion env1 env20) env21 (App(lf, res)) type2 type3) decoupes)
 
-  and union = assert false
+  and ti = []
+
+  and union = []
 						       
-					       
-  in t env type0 ['x';'y';'z';'p';'q';'r';'s';'t']
+  in t env type0 ['x';'y';'z';'p';'q';'r';'s';'t'];;
+
+let toto = inhabitation [] (Cons(
+  Fleche(
+    Cons(
+      Fleche(Cons(Var('a'), Empty), Cons(Var('a'), Empty))
+	, Empty), 
+    Cons(Fleche(Cons(Var('a'), Empty), Cons(Var('a'), Empty))
+	   , Empty))
+    , Empty))
+ 
