@@ -57,6 +57,15 @@ and sType =
 
 type environment = (char * multisetType) list
 
+let rec stringOfType = function
+  Empty -> ""
+  | Cons(Var(x), ms) -> (String.make 1 x) ^ ";" ^ (stringOfType ms)
+  | Cons(Fleche(ms0, ms1), ms2) -> "(" ^ (stringOfType ms0) ^ "->" ^ (stringOfType ms1) ^ ") ;" ^ (stringOfType ms2)
+
+let rec stringOfEnv = function 
+[] -> ""
+  | (x, type0)::tl -> "(" ^ (String.make 1 x) ^ ": " ^ (stringOfType type0) ^ ");" ^ stringOfEnv tl
+
 (* Liste les découpes possibles d'un environnement *)
 let rec envSplits = function 
     [] -> [([],[])]
@@ -111,7 +120,11 @@ and l =
 
 (* Inhabitation algorithm *)
 let inhabitation (env: environment) (type0 : multisetType) =
-  let rec t (env: environment) (type0 : multisetType) (fresh : char list) = match env, type0 with
+  let rec t (env: environment) (type0 : multisetType) (fresh : char list) =
+
+    print_string ("T : " ^ (stringOfEnv env) ^ ", " ^ (stringOfType type0) ^ "\n");
+
+    match env, type0 with
     (* Si type fleche, alors (abs) s'applique, de plus on doit appliquer (Head) pour chaque extraction possible d'un couple Var / Type de l'environnement *)
       (* abs *)
       ([], Cons(Fleche(type1, type2), Empty)) -> abs env fresh type1 type2
@@ -123,20 +136,25 @@ let inhabitation (env: environment) (type0 : multisetType) =
 
 
   and abs env fresh type0 type1 = 
+    print_string ("ABS : " ^ (stringOfEnv env) ^ ", " ^ (stringOfType type0) ^ ", " ^ (stringOfType type1) ^ "\n");
     (* On prend une variable fraiche et on appelle récursivement t *)
     List.map (fun elt -> Lambda(List.hd fresh, elt)) (t ((List.hd fresh, type0)::env) type1 (List.tl fresh))
 
   and head env type0 = 
+    print_string ("HEAD : " ^ (stringOfEnv env) ^ ", " ^ (stringOfType type0) ^ "\n");
     (* On regarde toutes les extractions possible d'un couple var / type *)
     let extracts = envExtracts env in
 
     (* On applique (head) pour chaque extract ( ->  ((x, [type]), envTail) ) *)
     List.concat 
       (List.map 
-	 (fun extract -> h (snd(extract)) [fst(extract)] (Var(fst(fst(extract)))) (snd(fst(extract))) type0) 
+	 (fun extract -> h [fst(extract)] (snd(extract)) (Var(fst(fst(extract)))) (snd(fst(extract))) type0) 
 	extracts)
     
-  and h (env1 : environment) (env2 : environment) (lf : l) type1 type2 = match env2, type1 with
+  and h (env1 : environment) (env2 : environment) (lf : l) type1 type2 =
+    print_string ("H : " ^ (stringOfEnv env1) ^ ", "^ (stringOfEnv env2)^ ", " ^ (stringOfType type1) ^ ", " ^ (stringOfType type2)^ "\n");
+
+    match env2, type1 with
     (* Final + Prefix *)
       ([], Cons(Fleche(typeA, typeS), Empty)) -> (final type1 type2 lf)@(prefix env1 env2 lf typeA typeS type2)
     (* Final *)
@@ -145,9 +163,12 @@ let inhabitation (env: environment) (type0 : multisetType) =
     | (_, Cons(Fleche(typeA, typeS), Empty)) -> prefix env1 env2 lf typeA typeS type2
     | (_, _) -> []
 
-  and final type1 type2 lf = if type1 = type2  then [L(lf)] else []
+  and final type1 type2 lf =
+    print_string ("FINAL : " ^ (stringOfType type1) ^ ", " ^ (stringOfType type2) ^ "\n");
+    if type1 = type2  then [L(lf)] else []
 
   and prefix env1 env2 (lf : l) type1 type2 type3 = 
+    print_string ("PREFIX : " ^ (stringOfEnv env1) ^ ", "^ (stringOfEnv env2)^ ", " ^ (stringOfType type1) ^ ", " ^ (stringOfType type2) ^ ", " ^ (stringOfType type3)^ "\n");
     let decoupes = envSplits env in
     (* Pour chaque découpage possible, on cherche les termes que trouve TI puis on appelle h *)
     
