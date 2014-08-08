@@ -76,10 +76,35 @@ let rec envSplits = function
 		   List.concat (List.map (fun c -> let (env1, env2) = c in
 				      List.map (fun choix -> ((fst choix)::env1, (snd choix)::env2)) choix) tail)
 
-let test2 = envSplits [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty))]
+let test2 = envSplits [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Cons(Var('d'), Empty)))]
 
 
-(* Liste les extractions possibles de coupls var /type d'un env *)
+let envSplitN (env : environment) n = 
+  (* Prend une découpe (liste d'env) et la redecoupe *)
+  let rec redecoupe acc = function
+      [] -> []
+    | env::tl -> let redec = envSplits env in
+		 List.concat (List.map (fun dec -> ((fst dec)::(snd dec)::(acc@tl))::(redecoupe (env::acc) tl)) redec)
+  in
+
+  (* Prend une liste de listes de découpe et découpe une fois supplémentaire *)
+  let rec aux = function
+      [] -> []
+    | decoupe::tl -> let redec = redecoupe [] decoupe in
+		     List.concat (List.map (fun re -> (re::(aux tl))) redec)
+  in
+
+  let rec naux dec = function
+      n when n <= 0 -> failwith "Must split into positive number of environments"
+    | 1 -> dec
+    | n -> naux (aux dec) (n-1)
+  in
+
+  naux [[env]] n
+
+let toto = envSplitN [('y', Cons(Var('c'), Empty))] 3
+
+(* Liste les extractions possibles de couples var /type d'un env *)
 let envExtracts (env : environment) = 
   let rec aux acc = function
     [] -> []
