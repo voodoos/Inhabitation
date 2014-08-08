@@ -18,6 +18,24 @@ let rec splits = function
 
 let test1 = splits (Cons('a', Cons('b', Empty)))
 
+let rec splitsN ms n = 
+   let rec initList = function
+      0 -> []
+    | m -> []::(initList (m-1)) in 
+
+   let rec add decoupe acc x = match decoupe with 
+       [] -> []
+     | h::tl -> (acc@((x::h)::tl))::(add tl (h::acc) x) in
+
+  match ms with
+    Empty -> [initList n] (* [[ [];[];[];...;[] ]] *)
+  | Cons(h, tl) -> let reste = (splitsN tl n) in
+	     List.concat (List.map (fun d -> (add d [] h)) reste)
+
+let test0 = splitsN (Cons(1, Cons(2, Empty))) 3
+
+   
+
 
 (* Liste les extractions possibles d'un multiset *)
 let extracts l =
@@ -77,9 +95,18 @@ let rec envSplits = function
 				      List.map (fun choix -> ((fst choix)::env1, (snd choix)::env2)) choix) tail)
 
 let test2 = envSplits [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Cons(Var('d'), Empty)))]
+(*
+let rec envSplitsN n = function 
+    [] -> [([],[])]
+  | (x, tys)::t -> let couples = splits tys and tail = envSplits t in
+		   (* On cherche tous les mélanges pour cette variable *)
+		   let choix = List.map (fun c -> ((x, fst c),(x, snd c))) couples in
+		   (* On les ajoute aux autres mélanges *)
+		   List.concat (List.map (fun c -> let (env1, env2) = c in
+				      List.map (fun choix -> ((fst choix)::env1, (snd choix)::env2)) choix) tail)
 
 
-let envSplitN (env : environment) n = 
+(*let envSplitN (env : environment) n = 
   (* Prend une découpe (liste d'env) et la redecoupe *)
   let rec redecoupe acc = function
       [] -> []
@@ -102,7 +129,7 @@ let envSplitN (env : environment) n =
 
   naux [[env]] n
 
-let toto = envSplitN [('y', Cons(Var('c'), Empty))] 3
+let toto = envSplitN [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Cons(Var('d'), Empty)))] 3*)
 
 (* Liste les extractions possibles de couples var /type d'un env *)
 let envExtracts (env : environment) = 
@@ -219,3 +246,4 @@ let toto = inhabitation [] (Cons(
 	   , Empty))
     , Empty))
  
+*)
