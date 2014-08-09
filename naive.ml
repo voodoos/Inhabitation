@@ -1,11 +1,15 @@
-let rec initList = function
-      0 -> []
-    | m -> []::(initList (m-1))
-
 (* Simple implementation des multisets *)
 type 'a multiset =
   Empty
 | Cons of 'a * 'a multiset
+
+let rec initList = function
+      0 -> []
+    | m -> []::(initList (m-1))
+
+let rec initMS = function
+      0 -> []
+    | m -> Empty::(initMS (m-1))
 
 (* Contactenation de deux multiset *)
 let rec concat m1 m2 = match m1 with
@@ -25,16 +29,15 @@ let test1 = splits (Cons('a', Cons('b', Empty)))
 let rec splitsN ms n = 
    let rec add decoupe acc x = match decoupe with 
        [] -> []
-     | h::tl -> (acc@((x::h)::tl))::(add tl (h::acc) x) in
+     | h::tl -> (acc@(Cons(x, h)::tl))::(add tl (h::acc) x) in
+     (*| h::tl -> (acc@((x::h)::tl))::(add tl (h::acc) x) in*)
 
   match ms with
-    Empty -> [initList n] (* [[ [];[];[];...;[] ]] *)
+    Empty -> [initMS n] (* [[ [];[];[];...;[] ]] *)
   | Cons(h, tl) -> let reste = (splitsN tl n) in
 	     List.concat (List.map (fun d -> (add d [] h)) reste)
 
 let test0 = splitsN (Cons(1, Cons(2, Empty))) 3
-
-   
 
 
 (* Liste les extractions possibles d'un multiset *)
@@ -76,12 +79,12 @@ and sType =
 type environment = (char * multisetType) list
 
 let rec stringOfType = function
-  Empty -> ""
+    Empty -> ""
   | Cons(Var(x), ms) -> (String.make 1 x) ^ ";" ^ (stringOfType ms)
   | Cons(Fleche(ms0, ms1), ms2) -> "(" ^ (stringOfType ms0) ^ "->" ^ (stringOfType ms1) ^ ") ;" ^ (stringOfType ms2)
 
 let rec stringOfEnv = function 
-[] -> ""
+    [] -> ""
   | (x, type0)::tl -> "(" ^ (String.make 1 x) ^ ": " ^ (stringOfType type0) ^ ");" ^ stringOfEnv tl
 
 (* Liste les découpes possibles d'un environnement *)
@@ -107,7 +110,6 @@ let rec envSplitsN n = function
 		      List.map (fun envs -> (* Pour chaque choix pour x on divise encore les environements *)
 			List.map (fun decoupeX -> 
 			  List.map2 (fun x env -> x::env) decoupeX envs) decoupesX) reste)
-  | _ -> assert false
 		    
 let test22 = envSplitsN 3 [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty))]
 
@@ -125,7 +127,7 @@ let envExtracts (env : environment) =
 
 let test4 = envExtracts [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));]
 
-(* Fussionne deux environnements *)
+(* Fusionne deux environnements *)
 let rec envFusion (env0 : environment) (env1 : environment) = 
   let rec aux elt acc = function 
       [] -> elt::acc
@@ -200,13 +202,14 @@ let inhabitation (env: environment) (type0 : multisetType) =
     print_string ("FINAL : " ^ (stringOfType type1) ^ ", " ^ (stringOfType type2) ^ "\n");
     if type1 = type2  then [L(lf)] else []
 
-  and prefix env1 env2 (lf : l) type1 type2 type3 = 
+  and prefix (env1 : environment)  (env2 : environment) (lf : l) type1 type2 type3 = 
     print_string ("PREFIX : " ^ (stringOfEnv env1) ^ ", "^ (stringOfEnv env2)^ ", " ^ (stringOfType type1) ^ ", " ^ (stringOfType type2) ^ ", " ^ (stringOfType type3)^ "\n");
-    let decoupes = envSplits env in
+    let decoupes = envSplitsN 2 env2 in
     (* Pour chaque découpage possible, on cherche les termes que trouve TI puis on appelle h *)
     
-    List.concat (List.map (fun envs -> 
-	let (env20, env21) = envs in
+    List.concat (List.map (fun (envs : environment list) -> 
+	let env20 = (List.hd envs) and env21 = (List.hd (List.tl envs)) in
+	
         (* On appelle ti, et pour chaque résultat de ti on appelle h *)
 	let res = N(L(Var('m'))) in (*ti env20 type2 in*)
 
@@ -226,4 +229,4 @@ let toto = inhabitation [] (Cons(
     Cons(Fleche(Cons(Var('a'), Empty), Cons(Var('a'), Empty))
 	   , Empty))
     , Empty))
- 
+
