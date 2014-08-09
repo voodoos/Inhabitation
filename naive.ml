@@ -1,3 +1,7 @@
+let rec initList = function
+      0 -> []
+    | m -> []::(initList (m-1))
+
 (* Simple implementation des multisets *)
 type 'a multiset =
   Empty
@@ -19,10 +23,6 @@ let rec splits = function
 let test1 = splits (Cons('a', Cons('b', Empty)))
 
 let rec splitsN ms n = 
-   let rec initList = function
-      0 -> []
-    | m -> []::(initList (m-1)) in 
-
    let rec add decoupe acc x = match decoupe with 
        [] -> []
      | h::tl -> (acc@((x::h)::tl))::(add tl (h::acc) x) in
@@ -95,41 +95,22 @@ let rec envSplits = function
 				      List.map (fun choix -> ((fst choix)::env1, (snd choix)::env2)) choix) tail)
 
 let test2 = envSplits [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Cons(Var('d'), Empty)))]
-(*
-let rec envSplitsN n = function 
-    [] -> [([],[])]
-  | (x, tys)::t -> let couples = splits tys and tail = envSplits t in
-		   (* On cherche tous les mélanges pour cette variable *)
-		   let choix = List.map (fun c -> ((x, fst c),(x, snd c))) couples in
-		   (* On les ajoute aux autres mélanges *)
-		   List.concat (List.map (fun c -> let (env1, env2) = c in
-				      List.map (fun choix -> ((fst choix)::env1, (snd choix)::env2)) choix) tail)
 
+let rec envSplitsN n = function
+  [] -> [initList n]
+  | (x, tys)::tl -> let decoupes = splitsN tys n and reste = envSplitsN n tl in
+		    (* On rétablit la structure (x : types) *)
+		    let decoupesX = List.map (fun paquets -> 
+		      List.map (fun paquet -> (x, paquet)) paquets) decoupes in
+		    (* On ajoute au reste les différents choix pour cette variable *)
+		    List.concat (
+		      List.map (fun envs -> (* Pour chaque choix pour x on divise encore les environements *)
+			List.map (fun decoupeX -> 
+			  List.map2 (fun x env -> x::env) decoupeX envs) decoupesX) reste)
+  | _ -> assert false
+		    
+let test22 = envSplitsN 3 [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty))]
 
-(*let envSplitN (env : environment) n = 
-  (* Prend une découpe (liste d'env) et la redecoupe *)
-  let rec redecoupe acc = function
-      [] -> []
-    | env::tl -> let redec = envSplits env in
-		 List.concat (List.map (fun dec -> ((fst dec)::(snd dec)::(acc@tl))::(redecoupe (env::acc) tl)) redec)
-  in
-
-  (* Prend une liste de listes de découpe et découpe une fois supplémentaire *)
-  let rec aux = function
-      [] -> []
-    | decoupe::tl -> let redec = redecoupe [] decoupe in
-		     List.concat (List.map (fun re -> (re::(aux tl))) redec)
-  in
-
-  let rec naux dec = function
-      n when n <= 0 -> failwith "Must split into positive number of environments"
-    | 1 -> dec
-    | n -> naux (aux dec) (n-1)
-  in
-
-  naux [[env]] n
-
-let toto = envSplitN [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Cons(Var('d'), Empty)))] 3*)
 
 (* Liste les extractions possibles de couples var /type d'un env *)
 let envExtracts (env : environment) = 
@@ -246,4 +227,3 @@ let toto = inhabitation [] (Cons(
 	   , Empty))
     , Empty))
  
-*)
