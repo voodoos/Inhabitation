@@ -8,6 +8,10 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 
+%% Code listings
+\usepackage{listings}
+\lstset{language=[Objective]Caml, frame=none, captionpos=b}
+
 \title{\textbf{Inhabitation Problem for lambda calculus with non-idempotent intersection types}}
 \author{Ulysse Gérard}
 \date\today
@@ -18,5 +22,32 @@
 
 \section{Introduction}
 
+
+\section{Implementation}
+\subsection{Types in OCaml}
+Themplementation of the inhabitation algorithm uses basic OCaml sum types with some polymorphism and recursivity.
+
+\begin{lstlisting}[caption={Multisets}]
+type 'a multiset =
+  Empty
+| Cons of 'a * 'a multiset
+\end{lstlisting}
+
+\begin{lstlisting}[caption={$\lambda$-calculus}]
+type term = 
+  Var of char
+| Lambda of char * term 
+| App of term * term
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Intersection types and environments}]
+type multisetType = 
+  sType multiset
+and sType = 
+  Var of char
+| Fleche of multisetType * sType
+
+type environment = (char * multisetType) list
+\end{lstlisting}
 
 \end{document}

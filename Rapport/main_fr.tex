@@ -8,6 +8,10 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 
+%% Code listings
+\usepackage{listings}
+\lstset{language=[Objective]Caml, frame=none, captionpos=b}
+
 \title{\textbf{Inhabitation dans le lambda calcul avec types intersection non-idempotents}}
 \author{Ulysse Gérard}
 
@@ -16,5 +20,13 @@
 \maketitle
 
 \section{Introduction}
+
+\subsection{Types used}
+
+\begin{lstlisting}[caption={A simple polymorphic type for multisets}]
+type 'a multiset =
+  Empty
+| Cons of 'a * 'a multiset
+\end{lstlisting}
 
 \end{document}
