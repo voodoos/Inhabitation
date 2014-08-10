@@ -42,15 +42,15 @@ let rec concat m1 m2 = match m1 with
 
 (* Partitions d'un multiset *)
 let rec splitsN ms n = 
-   (* Ajoute un élément à une découpe de toutes les façons possibles *)
-   let rec add decoupe acc x = match decoupe with 
-       [] -> []
-     | h::tl -> (acc@(Cons(x, h)::tl))::(add tl (h::acc) x) in
+   (* Ajoute un élément à une découpe de toutes les façons possibles (tr) *)
+   let rec add decoupe acc acc2 x = match decoupe with 
+       [] -> acc2
+     | h::tl -> add tl (h::acc) ((acc@(Cons(x, h)::tl))::acc2) x in
 
   match ms with
     Empty -> [initMS n] (* [[ [];[];[];...;[] ]] *)
   | Cons(h, tl) -> let reste = (splitsN tl n) in
-	     List.concat (List.map (fun d -> (add d [] h)) reste)
+	     List.concat (List.map (fun d -> (add d [] [] h)) reste)
 
 let test0 = splitsN (Cons(1, Cons(2, Empty))) 3
 
@@ -80,24 +80,11 @@ and sType =
 
 type environment = (char * multisetType) list
 
+(* Détermine la vidité d'un environement (tr) *)
 let rec envIsEmpty = function
   | [] -> true
   | (_, Empty)::tl -> envIsEmpty tl
   | _ -> false
-
-let rec stringOfSType = function
-    Var(c) -> String.make 1 c
-  | Fleche(ms, s) -> (stringOfMSType ms)^" -> "^stringOfSType s
-and stringOfMSType ms = 
-  let rec aux = function
-    Empty -> ""
-  | Cons(s, ms) -> stringOfSType s ^ ";" ^ (stringOfMSType ms)
-  in "["^aux ms^"]"
-
-
-let rec stringOfEnv = function 
-    [] -> ""
-  | (x, type0)::tl -> "(" ^ (String.make 1 x) ^ ": " ^ (stringOfMSType type0) ^ ");" ^ stringOfEnv tl
 
 (* Liste les découpes possibles d'un environnement *)
 let rec envSplitsN n = function
@@ -128,7 +115,7 @@ let envExtracts (env : environment) =
 
 let test4 = envExtracts [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));]
 
-(* Fusionne deux environnements *)
+(* Fusionne deux environnements (tr) *)
 let rec envFusion (env0 : environment) (env1 : environment) = 
   let rec aux elt acc = function 
       [] -> elt::acc
@@ -153,6 +140,28 @@ and l =
   Var of char
 | App of l * anf
 
+(* Affichage *)
+let rec stringOfSType (t : sType) = match t with
+    Var(c) -> String.make 1 c
+  | Fleche(ms, s) -> (stringOfMSType ms)^" -> "^ stringOfSType s
+
+and stringOfMSType mst =
+  
+  let rec aux = function
+    Empty -> "]"
+  | Cons(s, ms) -> if ms != Empty then stringOfSType s ^ ";" ^ (stringOfMSType ms) 
+    else stringOfSType s^"]"
+  in "["^aux mst
+
+
+let rec stringOfEnv e =
+  let rec aux =  function 
+    [] -> "]"
+  | (x, type0)::tl -> if List.length tl  > 0 then 
+      "(" ^ (String.make 1 x) ^ ": " ^ (stringOfMSType type0) ^ ");" ^ aux tl
+    else "(" ^ (String.make 1 x) ^ ": " ^ (stringOfMSType type0) ^ ")]"
+  in "["^aux e
+
 let rec anfToString  = function
     TheEnd | Omega -> "Omega"
   | N(n) -> nToString n
@@ -163,6 +172,10 @@ and lToString = function
     Var(c) -> String.make 1 c
   | App(l, anf) -> "App("^lToString l^", "^anfToString anf^")"
 
+let rec printAnfList = function
+    [] -> ()
+  | h::tl -> (print_string (nToString h));printAnfList tl
+
 (* Max of two anf *)
 let rec aSupb a b = match b with
     Omega -> true
@@ -172,7 +185,16 @@ let inhabitation (env: environment) (type0 : sType) =
   let rec t (env: environment) (type0 : sType) (fresh : char list) =
 
     print_string ("T : " ^ (stringOfEnv env) ^ ", " ^ (stringOfSType type0) ^ "\n");
-
+    print_string (stringOfSType (Fleche(
+      Cons(
+	Fleche(
+	Empty,
+        Var('a')
+	),
+	Empty
+      ),
+      Var('a')
+    )));
     match env, type0 with
     (* Si type fleche, alors (abs) s'applique, de plus on doit appliquer (Head) pour chaque extraction possible d'un couple Var / Type de l'environnement *)
       (* abs *)
@@ -259,11 +281,8 @@ let inhabitation (env: environment) (type0 : sType) =
 				let pouet = List.concat (List.concat (List.map (fun partition -> 
 				  List.map2 (fun partie type0 -> t partie type0 fresh) partition (msToList type0)) partitions)) in
 				
-				print_string "Anf trouvees: ";
-				let rec p = function
-				[] -> ()
-				  | h::tl -> (print_string (nToString h));p tl in
-				p pouet;
+				print_string "Anf trouvees: ";printAnfList pouet;
+
 				print_string "\n";
 				if(List.length pouet > 0) then (N(List.hd pouet)) else Omega
 			      end
