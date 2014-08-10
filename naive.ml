@@ -52,17 +52,17 @@ let rec splitsN ms n =
   | Cons(h, tl) -> let reste = (splitsN tl n) in
 	     List.concat (List.map (fun d -> (add d [] [] h)) reste)
 
-let test0 = splitsN (Cons(1, Cons(2, Empty))) 3
+(* let test0 = splitsN (Cons(1, Cons(2, Empty))) 3 *)
 
 
 (* Liste les extractions possibles d'un multiset (tr) *)
-let extracts l =
+let extractMS l =
   let rec aux acc acc2 = function
   Empty -> acc2
   | Cons(h, t) -> (aux (Cons(h, acc)) ((h, concat acc t)::acc2) t) in
   aux Empty [] l
 
-let test3 = extracts (Cons(1, Cons(2, Cons(3, Cons(4, Empty)))))
+(* let test3 = extractMS (Cons(1, Cons(2, Cons(3, Cons(4, Empty))))) *)
 
 
 
@@ -79,6 +79,7 @@ and sType =
 | Fleche of multisetType * sType
 
 type environment = (char * multisetType) list
+
 
 (* Détermine la vidité d'un environement (tr) *)
 let rec envIsEmpty = function
@@ -99,21 +100,21 @@ let rec envSplitsN n = function
 			List.map (fun decoupeX -> 
 			  List.map2 (fun x env -> x::env) decoupeX envs) decoupesX) reste)
 		    
-let test22 = envSplitsN 3 [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty))]
+(* let test22 = envSplitsN 3 [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty))] *)
 
 
-(* Liste les extractions possibles de couples var /type d'un env *)
+(* Liste les extractions possibles de couples var /type d'un env (tr) *)
 let envExtracts (env : environment) = 
-  let rec aux acc = function
-    [] -> []
-  | (x, types)::t -> let extracts = extracts types in
-		   List.map (fun ex -> let (e, tail) = ex in let elt = Cons(e, Empty) in match tail with
-		     Empty -> ((x, elt), t@acc)
-		   | _ -> ((x, elt), (x, tail)::t@acc)) extracts
-		     @ (aux ((x, types)::acc) t) in
-  aux [] env
+  let rec aux acc acc2 = function
+    [] -> acc2
+  | (x, types)::t -> (aux ((x, types)::acc) ((List.map (fun ex -> let (e, tail) = ex in 
+					 let elt = Cons(e, Empty) in 
+					 match tail with
+					   Empty -> ((x, elt), t@acc)
+					 | _ -> ((x, elt), (x, tail)::t@acc)) (extractMS types))@ acc2) t) in
+  aux [] [] env
 
-let test4 = envExtracts [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));]
+(* let test4 = envExtracts [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));] *)
 
 (* Fusionne deux environnements (tr) *)
 let rec envFusion (env0 : environment) (env1 : environment) = 
@@ -126,7 +127,7 @@ let rec envFusion (env0 : environment) (env1 : environment) =
     [] -> env1
   | h::t -> envFusion t (aux h [] env1)
 
-let test5 = envFusion [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));] [('x', Cons(Var('c'), Empty))]
+(* let test5 = envFusion [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));] [('x', Cons(Var('c'), Empty))] *)
 
 (* Approximate normal forms *)
 type anf = 
@@ -185,23 +186,14 @@ let inhabitation (env: environment) (type0 : sType) =
   let rec t (env: environment) (type0 : sType) (fresh : char list) =
 
     print_string ("T : " ^ (stringOfEnv env) ^ ", " ^ (stringOfSType type0) ^ "\n");
-    print_string (stringOfSType (Fleche(
-      Cons(
-	Fleche(
-	Empty,
-        Var('a')
-	),
-	Empty
-      ),
-      Var('a')
-    )));
+
     match env, type0 with
     (* Si type fleche, alors (abs) s'applique, de plus on doit appliquer (Head) pour chaque extraction possible d'un couple Var / Type de l'environnement *)
-      (* abs *)
+      (* ABS *)
       (e, Fleche(type1, type2)) when envIsEmpty e -> abs env fresh type1 type2
-      (* abs + head *)
+      (* ABS + HEAD *)
     | (_::_, Fleche(type1, type2)) -> (abs env fresh type1 type2)@(head env type0 fresh)
-      (* head *)
+      (* HEAD *)
     | (_::_, _) -> head env type0 fresh
     | (_,_) -> []
 
@@ -235,11 +227,11 @@ let inhabitation (env: environment) (type0 : sType) =
     print_string ("H : E1=" ^ (stringOfEnv env1) ^ " E2="^ (stringOfEnv env2)^ " T1=" ^ (stringOfSType type1) ^ " T2=" ^ (stringOfSType type2)^ ", LF="^lToString lf^"\n");
 
     match env2, type1 with
-    (* Final + Prefix *)
+    (* FINAL + PREFIX *)
       (e, Fleche(typeA, typeS)) when envIsEmpty e -> (final type1 type2 lf)@(prefix env1 env2 lf typeA typeS type2 fresh)
-    (* Final *)
+    (* FINAL *)
     | (e, type1) when envIsEmpty e-> final type1 type2 lf
-    (* Prefix *)
+    (* PREFIX *)
     | (_, Fleche(typeA, typeS)) -> prefix env1 env2 lf typeA typeS type2 fresh
     | (_, _) -> []
 
@@ -259,9 +251,11 @@ let inhabitation (env: environment) (type0 : sType) =
 	let env20 = (List.hd envs) and env21 = (List.hd (List.tl envs)) in
 	
         (* On appelle ti, et pour chaque résultat de ti on appelle h *)
+	(* UNION *)
 	let res = ti env20 type1 fresh in (*N(L(Var('m')))*)
-	
+	if res != TheEnd then
 	h (envFusion env1 env20) env21 (App(lf, res)) type2 type3 fresh
+	else []
     )
     decoupes)
 
@@ -270,7 +264,7 @@ let inhabitation (env: environment) (type0 : sType) =
 
 			    if i <= 0 then
 			      begin
-				print_string "Anf trouvees: Omega";
+				print_string "Type [], anf: Omega\n";
 				Omega
 			      end
 			    else
@@ -284,7 +278,7 @@ let inhabitation (env: environment) (type0 : sType) =
 				print_string "Anf trouvees: ";printAnfList pouet;
 
 				print_string "\n";
-				if(List.length pouet > 0) then (N(List.hd pouet)) else Omega
+				if(List.length pouet > 0) then (N(List.hd pouet)) else TheEnd
 			      end
 						       
   in t env type0 ['x';'y';'z';'p';'q';'r';'s';'t'];;
