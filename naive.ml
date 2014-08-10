@@ -154,6 +154,9 @@ and lToString = function
     Var(c) -> String.make 1 c
   | App(l, anf) -> "App("^lToString l^", "^anfToString anf^")"
 
+(* Max of two anf *)
+let rec aSupb a b = match b with
+    Omega -> true
 
 (* Inhabitation algorithm *)
 let inhabitation (env: environment) (type0 : multisetType) =
@@ -223,38 +226,58 @@ let inhabitation (env: environment) (type0 : multisetType) =
         (* On appelle ti, et pour chaque résultat de ti on appelle h *)
 	let res = ti env20 type2 fresh in (*N(L(Var('m')))*)
 	
-	h (envFusion env1 env20) env21 (App(lf, res)) type2 type3 fresh) 
+	h (envFusion env1 env20) env21 (App(lf, res)) type2 type3 fresh
+    )
     decoupes)
 
   and ti env0 type0 fresh = let i = sizeOfMS type0 in
 		      print_string ("UNION : " ^ (stringOfEnv env0) ^ ", " ^ (stringOfType type0) ^ "\n");
 
-		      (* On cherche toutes les partitions en i elements de l'environment *)
-		      let partitions = envSplitsN i env0 in
-		      (* Pour chaque melange et chaque type on tente de touver des termes qui font l'affaire: *)
-		      let pouet = List.concat (List.concat (List.map (fun partition -> 
-			List.map2 (fun partie type0 -> t partie type0 fresh) partition (msToList type0)) partitions)) in
-
-		      print_string "Anf trouvees: ";
-		      let rec p = function
-		      [] -> ()
-			| h::tl -> (print_string (nToString h));p tl in
-                      p pouet;
-		      print_string "\n";
-		      if(List.length pouet > 0) then (N(List.hd pouet)) else N(L(Var('r')))
-
-		      (*if(List.length(t (List.hd (List.hd parts)) type0 fresh) > 0) then
-		      N(List.hd (t (List.hd (List.hd parts)) type0 fresh)) else N(L(Var('r')))*)
-
+			    if i <= 0 then
+			      begin
+				print_string "Anf trouvees: Omega";
+				Omega
+			      end
+			    else
+			      begin
+				(* On cherche toutes les partitions en i elements de l'environment *)
+				let partitions = envSplitsN i env0 in
+				(* Pour chaque melange et chaque type on tente de touver des termes qui font l'affaire: *)
+				let pouet = List.concat (List.concat (List.map (fun partition -> 
+				  List.map2 (fun partie type0 -> t partie type0 fresh) partition (msToList type0)) partitions)) in
+				
+				print_string "Anf trouvees: ";
+				let rec p = function
+				[] -> ()
+				  | h::tl -> (print_string (nToString h));p tl in
+				p pouet;
+				print_string "\n";
+				if(List.length pouet > 0) then (N(List.hd pouet)) else Omega
+			      end
 						       
   in t env type0 ['x';'y';'z';'p';'q';'r';'s';'t'];;
 
-let toto = inhabitation [] (Cons(
+(*let toto = inhabitation [] (Cons(
   Fleche(
     Cons(
       Fleche(Cons(Var('a'), Empty), Cons(Var('a'), Empty))
 	, Empty), 
     Cons(Fleche(Cons(Var('a'), Empty), Cons(Var('a'), Empty))
 	   , Empty))
-    , Empty))
+    , Empty))*)
 
+let tata = inhabitation [] (
+  Cons(
+    Fleche(
+      Cons(
+	Fleche(
+	Empty,
+	Cons(Var('a'), Empty)
+	),
+	Empty
+      ),
+      Cons(Var('a'), Empty)
+    ),
+    Empty
+  )
+)
