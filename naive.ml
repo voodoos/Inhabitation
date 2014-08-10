@@ -3,29 +3,46 @@ type 'a multiset =
   Empty
 | Cons of 'a * 'a multiset
 
-let rec msToList = function
-    Empty -> []
-  | Cons(x, ms) -> x::(msToList ms)
+(* Converti un multiset en une liste (tr) *)
+let msToList ms = 
+  let rec aux acc = function
+    Empty -> acc
+  | Cons(x, ms) -> aux (acc@[x]) ms
+  
+  in aux [] ms
 
-let rec initList = function
-      0 -> []
-    | m -> []::(initList (m-1))
+(* Créé une liste de n listes vides (tr) *)
+let initList n = 
+  let rec aux acc = function
+      0 -> acc
+    | m -> aux ([]::acc) (m-1)
 
-let rec initMS = function
-      0 -> []
-    | m -> Empty::(initMS (m-1))
+  in aux [] n
 
-let rec sizeOfMS = function
-    Empty -> 0
-  | Cons(_, tl) -> 1 + (sizeOfMS tl)
+(* Créé une liste de n multisets vides (tr) *)
+let initMS n = 
+  let rec aux acc = function
+      0 -> acc
+    | m -> aux (Empty::acc) (m-1)
 
-(* Contactenation de deux multiset *)
+  in aux [] n
+
+(* Renvoie le nombre d'éléments d'un multiset (tr) *)
+let sizeOfMS ms = 
+  let rec aux acc =  function
+    Empty -> acc
+  | Cons(_, tl) -> aux (acc+1) tl
+
+  in aux 0 ms
+
+(* Contactenation de deux multiset (tr) *)
 let rec concat m1 m2 = match m1 with
     Empty -> m2
   | Cons(h, t) -> concat t (Cons(h, m2))
 
 (* Partitions d'un multiset *)
 let rec splitsN ms n = 
+   (* Ajoute un élément à une découpe de toutes les façons possibles *)
    let rec add decoupe acc x = match decoupe with 
        [] -> []
      | h::tl -> (acc@(Cons(x, h)::tl))::(add tl (h::acc) x) in
@@ -38,12 +55,12 @@ let rec splitsN ms n =
 let test0 = splitsN (Cons(1, Cons(2, Empty))) 3
 
 
-(* Liste les extractions possibles d'un multiset *)
+(* Liste les extractions possibles d'un multiset (tr) *)
 let extracts l =
-  let rec aux acc = function
-  Empty -> []
-  | Cons(h, t) -> (h, concat acc t)::(aux (Cons(h, acc)) t) in
-  aux Empty l
+  let rec aux acc acc2 = function
+  Empty -> acc2
+  | Cons(h, t) -> (aux (Cons(h, acc)) ((h, concat acc t)::acc2) t) in
+  aux Empty [] l
 
 let test3 = extracts (Cons(1, Cons(2, Cons(3, Cons(4, Empty)))))
 
