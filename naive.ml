@@ -55,19 +55,6 @@ type term =
 | Lambda of char * term 
 | App of term * term
 
-type context = 
-  Blank 
-| CLambda of char * context 
-| AppLeft of context * term
-| AppRight of term * context
-
-(* Opération de passage au contexte *)
-let rec contextualize c t = match c with
-    Blank -> t
-  | CLambda(x, c2) -> Lambda(x, contextualize c2 t)
-  | AppLeft(c2, t2) -> App(contextualize c2 t, t2)
-  | AppRight(t2, c2) -> App(t2, contextualize c2 t)
-
 (* Types *)
 type multisetType = sType multiset
 and sType = 
