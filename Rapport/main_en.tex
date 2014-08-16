@@ -12,6 +12,8 @@
 \usepackage{listings}
 \lstset{language=[Objective]Caml, frame=none, captionpos=b}
 
+\usepackage{multicol}
+
 \title{\textbf{Inhabitation Problem for lambda calculus with non-idempotent intersection types}}
 \author{Ulysse Gérard}
 \date\today
@@ -25,7 +27,7 @@
 
 \section{Implementation}
 \subsection{Types in OCaml}
-Themplementation of the inhabitation algorithm uses basic OCaml sum types with some polymorphism and recursivity.
+The implementation of the inhabitation algorithm uses basic OCaml sum types with some polymorphism and recursivity.
 
 \begin{lstlisting}[caption={Multisets}]
 type 'a multiset =
@@ -49,5 +51,27 @@ and sType =
 
 type environment = (char * multisetType) list
 \end{lstlisting}
+
+\begin{multicols}{3}[Titre sur une seule colonne.]
+\begin{lstlisting}[caption={Approximate normal forms}]
+type anf = 
+  Omega
+| N of n
+\end{lstlisting}
+\columnbreak
+\begin{lstlisting}[caption={Approximate normal forms}]
+and n = 
+  Lambda of char * n
+| L of l
+\end{lstlisting}
+\columnbreak
+\begin{lstlisting}[caption={Approximate normal forms}]
+and l =
+  Var of char
+| App of l * anf
+\end{lstlisting}
+\end{multicols}
+
+
 
 \end{document}

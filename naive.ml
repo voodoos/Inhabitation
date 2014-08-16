@@ -66,12 +66,6 @@ let extractMS l =
 
 
 
-(* Grammaire pour les patterns, les termes et les contextes *)
-type term = 
-  Var of char
-| Lambda of char * term 
-| App of term * term
-
 (* Types *)
 type multisetType = sType multiset
 and sType = 
@@ -141,6 +135,62 @@ and l =
   Var of char
 | App of l * anf
 
+type anf2 = 
+  Omega
+| Lambda of 
+
+let rec notIn x = function
+    TheEnd | Omega -> true
+  | N(n) -> niN x n
+and niN x = function
+    Lambda(c, n) when c = x -> false
+  | Lambda(c, n) -> niN x n
+  | L(l) -> niL x l
+and niL x = function
+    Var(c) when x = c -> false
+  | Var(c) -> true
+  | App(l, a) -> (niL x l)&&(notIn x a)
+
+(* Alpha conversion *)
+let rec alpha x y = function
+    TheEnd -> assert false
+  | Omega -> Omega
+  | N(n) -> N(alphaN x y n)
+and alphaN x y = function
+    Lambda(c, n) when c = x && niN y n-> Lambda(y, alphaN x y n)
+  | Lambda(c, n) -> Lambda(c, alphaN x y n)
+  | L(l) -> L(alphaL x y l)
+and alphaL x y = function
+    Var(c) when c = x -> Var(y)
+  | Var(c) -> Var(c)
+  | App(l, a) -> App(alphaL x y l, alpha x y a)
+
+let tititoto = alpha 'x' 'y'  (N(Lambda('x', L(Var('y')))))
+
+(* Max of two anf *)
+let rec compAnf a b = match a, b with
+    TheEnd, _ | _, TheEnd -> assert false
+  | Omega, _ -> b
+  |  _, Omega -> a
+  | N(na), N(nb) -> N(compNf na nb)
+and compNf a b =  match a, b with
+    Lambda(ca, na), Lambda(cb, nb) -> Lambda(ca, compNf na (alphaN cb ca nb))
+  | L(la), L(lb) -> L(compLf la lb)
+  | _, _ -> failwith "Arg no Least upper bound found !"
+and compLf a b = match a, b with
+    Var(ca), Var(cb) when ca = cb -> Var(ca)
+  | App(la, anfa), App(lb, anfb) -> App((compLf la lb), (compAnf anfa anfb))
+  | _, _ -> failwith "Arg no Least upper bound found !"
+
+
+let tototata = compAnf (N(Lambda('x', L(App(Var('y'), Omega))))) (N(Lambda('z', L(App(Var('y'), N(L(Var('z'))))))))
+
+let rec compAnfs = function
+[] -> Omega
+  | h::tl -> compAnf (N(h)) (compAnfs tl)
+
+
+
 (* Affichage *)
 let rec stringOfSType (t : sType) = match t with
     Var(c) -> String.make 1 c
@@ -177,9 +227,9 @@ let rec printAnfList = function
     [] -> ()
   | h::tl -> (print_string (nToString h));printAnfList tl
 
-(* Max of two anf *)
-let rec aSupb a b = match b with
-    Omega -> true
+
+
+
 
 (* Inhabitation algorithm *)
 let inhabitation (env: environment) (type0 : sType) =
@@ -250,37 +300,38 @@ let inhabitation (env: environment) (type0 : sType) =
     List.concat (List.map (fun (envs : environment list) -> 
 	let env20 = (List.hd envs) and env21 = (List.hd (List.tl envs)) in
 	
-        (* On appelle ti, et pour chaque résultat de ti on appelle h *)
+        (* On appelle union, et pour chaque résultat de ti on appelle h *)
 	(* UNION *)
-	let res = ti env20 type1 fresh in (*N(L(Var('m')))*)
+	let res = union env20 type1 fresh in (*N(L(Var('m')))*)
 	if res != TheEnd then
 	h (envFusion env1 env20) env21 (App(lf, res)) type2 type3 fresh
 	else []
     )
     decoupes)
 
-  and ti (env0 : environment) (type0 : multisetType) fresh = let i = sizeOfMS type0 in
-		      print_string ("UNION : " ^ (stringOfEnv env0) ^ ", " ^ (stringOfMSType type0) ^ "\n");
-
-			    if i <= 0 then
-			      begin
-				print_string "Type [], anf: Omega\n";
-				Omega
-			      end
-			    else
-			      begin
+  and union (env0 : environment) (type0 : multisetType) fresh = 
+    let i = sizeOfMS type0 in
+    print_string ("UNION : " ^ (stringOfEnv env0) ^ ", " ^ (stringOfMSType type0) ^ "\n");
+    
+    if i <= 0 then
+      begin
+	print_string "Type [], anf: Omega\n";
+	Omega
+      end
+    else
+      begin
 				(* On cherche toutes les partitions en i elements de l'environment *)
-				let partitions = envSplitsN i env0 in
+	let partitions = envSplitsN i env0 in
 				(* Pour chaque melange et chaque type on tente de touver des termes qui font l'affaire: *)
-				let pouet = List.concat (List.concat (List.map (fun partition -> 
-				  List.map2 (fun partie type0 -> t partie type0 fresh) partition (msToList type0)) partitions)) in
-				
-				print_string "Anf trouvees: ";printAnfList pouet;
-
-				print_string "\n";
-				if(List.length pouet > 0) then (N(List.hd pouet)) else TheEnd
-			      end
-						       
+	let nList = List.concat (List.concat (List.map (fun partition -> 
+	  List.map2 (fun partie type0 -> t partie type0 fresh) partition (msToList type0)) partitions)) in
+	
+	print_string "Anf trouvees: ";printAnfList nList;
+	
+	print_string "\n";
+	if(List.length nList > 0) then (compAnfs nList) else TheEnd
+      end
+	
   in t env type0 ['x';'y';'z';'p';'q';'r';'s';'t'];;
 
 let toto = inhabitation [] (
