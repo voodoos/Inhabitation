@@ -4,17 +4,34 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 
+\usepackage{mdframed}
+\usepackage{xcolor}
+
 %% Better maths
-\usepackage{amsmath}
-\usepackage{amssymb}
+\usepackage{amsmath, amssymb, amsthm, xfrac, semantic}
 
 %% Code listings
 \usepackage{listings}
-\lstset{language=[Objective]Caml, frame=none, captionpos=b}
+\lstset{language=[Objective]Caml, frame=none, captionpos=b, frame=single}
 
 \usepackage{multicol}
 
-\title{\textbf{Inhabitation Problem for lambda calculus with non-idempotent intersection types}}
+%% Déclaration des fonctions mathématiques
+\DeclareMathOperator{\iT}{T}
+\DeclareMathOperator{\iH}{H}
+\DeclareMathOperator{\iTI}{TI}
+\DeclareMathOperator{\iDom}{dom}
+\DeclareMathOperator{\iLambda}{\lambda}
+\DeclareMathOperator{\ienvSPlit}{envSplitsN}
+\DeclareMathOperator{\isplit}{splitsN}
+
+%% Environnements maths (amsthm)
+\newtheorem{Def}{Definition}
+
+\def\lcalc{$\lambda$-calculus}
+\def\lterm{$\lambda$-term}
+
+\title{\textbf{Inhabitation Problem in lambda calculus with non-idempotent intersection types}}
 \author{Ulysse Gérard}
 \date\today
 
@@ -23,23 +40,97 @@
 \maketitle
 
 \section{Introduction}
+The operation of typing is well known in \lcalc. And numerous typing systems have been imagined to give a signification to \lterm s, attributing types to them. But the opposite problem exists, when we want to decide, given a type $A$ and a typing environment $\Gamma$, whether or not there exists a term $t$ such that $\Gamma \vdash t : A$ is provable. This problem is called the \emph{inhabitation problem}.
+The inhabitation problem has been studied for numerous type systems and proved to be undecidable for some of them. For example, the system $\mathcal{D}\Omega$ \cite{Kriv} which characterizes solvable terms shown in \ref{SDO} %Th3.10 ?
+has been proved to be undecidable by Urzyczyn \cite{Urz}. But others, simplified, type systems such as the  $\mathcal{S}$ and $\mathcal{S_r}$ systems of Van Bakel \cite{VBak} also turned out to be undecidable. All of these system are based on idempotent intersection types ($A\wedge A = A$).
 
+\begin{figure}
+    \begin{mdframed}
+        \begin{gather*}
+        \inference[]{x : A \in \Gamma}{\Gamma \vdash x : A}
+        \qquad
+        \inference[]{\Gamma, x : A \vdash t : B}{\Gamma \vdash \lambda x.t : A \rightarrow B}
+        \qquad
+        \inference[]{\Gamma \vdash t : A \rightarrow B \quad \Gamma \vdash u : A}{\Gamma \vdash tu : B}
+        \\
+        \inference[]{\Gamma t : A \wedge B}{\Gamma \vdash t : A \quad \Gamma t : B}
+        \qquad
+        \inference[]{\Gamma \vdash t : A \quad \Gamma \vdash t : B}{\Gamma \vdash t : A \wedge B}
+        \qquad
+        \inference[]{}{\Gamma \vdash t : \Omega}
+        \\ \text{For types } A ::= \Omega \ | \ \alpha \ | \ A \rightarrow A \ | \ A \wedge A
+        \end{gather*}
+    \end{mdframed}
+    \caption{System $\mathcal{D}\Omega$}
+    \label{SDO}
+\end{figure}
+
+Recently, researchers from the PPS laboratory in France and the University of Turin in Italy shoved that the inhabitation problem was decidable for non-idempotent intersection types ($A\wedge A\neq A$) by exhibiting a sound and complete algorithm (Fig. \ref{INH}, p\pageref{INH}) \cite{Kes}. They used a typing system named system $\mathcal{M}$, which is the same as system $\mathcal{R}$ of R. De Carvalho \cite{DeCarvalho}.
+
+The purpose of this work was to implement this algorithm in OCaml.
+
+\begin{figure}[h]
+    \begin{mdframed}
+        \begin{gather*}
+        \inference[(Var)]{}{x : [\rho] \vdash x : \rho}
+        \qquad
+        \inference[($\rightarrow$ I)]{\Gamma, x : A \vdash t : \rho}{\Gamma \backslash x \vdash \lambda x.t : A \rightarrow \rho}
+        \\ \\
+        \inference[($\rightarrow$ E)]{\Gamma_0 \vdash t : [\sigma_1, \ldots \sigma_i] \rightarrow \rho 
+            & \Gamma_1 \vdash u : \sigma_1, \ldots \Gamma_i \vdash u : \sigma_i}
+        {\Gamma_0 + \Gamma_1 + \cdots + \Gamma_i \vdash tu : \rho}
+        \\ \\
+        \text{For types } \sigma, \tau, \rho ::= \alpha \ | \ A \rightarrow \tau \qquad A ::= [\sigma_i]_{i \in I}
+        \end{gather*}
+    \end{mdframed}
+    \caption{The  $\mathcal{M}$-system ($\mathcal{R}$-system of D. De Carvalho \cite{DeCarvalho})}
+\end{figure}
+
+%\begin{Def}
+%    A term t is \emph{solvable} iff it exists vars $x_1,\ldots,x_k$ and terms $u_1,\ldots,u_k,v_1,\ldots,v_l$ (with $k,l\geq 0$) such that $(t[\sfrac{u_1}{x_1},\ldots,\sfrac{u_k}{x_k}])v_1\ldots v_l \simeq_\beta I$
+%\end{Def}
+
+\section {Definitions}
+The lambda-calculus and the non-idempotent intersection types system used are:
+\begin{align*}
+	t, u, v &::= x\ |\ \lambda x.t\ |\ tu 
+	& \sigma, \tau, \rho &::= \alpha \ | A \rightarrow \tau \\
+	&& A &::= [\sigma_i]_{i \in I}
+\end{align*}
+where $\alpha$ belongs to a countable set of base types and $I$ is a finite set of indices. Non-idempotent intersection types are thought represented by multisets.
+
+(Var) and ($\rightarrow$ I) are the same than in simply typed $\lambda$-calculus. The third one is interesting, it allows the system to type even non-strongly normalizing terms and implements the use of non-idempotent intersection types.
+
+\section{The algorithm}
+\begin{figure}[h]
+    \begin{mdframed}
+        \begin{gather*}
+            \inference[(ABS)]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\iLambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
+            \\ \\
+            \inference[(HEAD)]{a \in \iT^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
+            \\ \\
+            \inference[(PREFIX)]{\Gamma = \Gamma_0 + \Gamma_1 & b \in \iTI(\Gamma_0, A) & a \in \iH^{\Delta + \Gamma_0}_{cb}(\Gamma_1, \sigma) \triangleright \tau}{a \in \iH^{\Delta}_c(\Gamma, A \rightarrow \sigma) \triangleright \tau}
+            \\ \\
+            \inference[(FINAL)]{\sigma = \tau}{a \in \iH^{\Delta}_a(\emptyset, \sigma) \triangleright \tau}
+            \qquad
+            \inference[(UNION)]{(a_i \in \iT(\Gamma_i, \sigma_i))_{i \in I} & \uparrow_{i \in I}a_i}{\displaystyle \bigvee_{i \in I} a_i \in \iTI(+_{i \in I}\Gamma_i, [\sigma_i]_{i \in I}) }
+        \end{gather*}
+    \end{mdframed}
+  \caption{The inhabitation algorithm}
+  \label{INH}
+\end{figure}
 
 \section{Implementation}
-\subsection{Types in OCaml}
-The implementation of the inhabitation algorithm uses basic OCaml sum types with some polymorphism and recursivity.
+This implementation of the inhabitation algorithm only uses basic OCaml structures. It literally follows the algorithm and builds a list of terms being given an environment and a type. The main algorithm involves a lot of undeterminism and it's implementation is not tail-recursive which makes it very memory greedy.
 
+\subsection{Types}
+The implementation of the inhabitation algorithm uses basic OCaml sum types with polymorphism and recursion. 
+
+\
 \begin{lstlisting}[caption={Multisets}]
 type 'a multiset =
   Empty
 | Cons of 'a * 'a multiset
-\end{lstlisting}
-
-\begin{lstlisting}[caption={$\lambda$-calculus}]
-type term = 
-  Var of char
-| Lambda of char * term 
-| App of term * term
 \end{lstlisting}
 
 \begin{lstlisting}[caption={Intersection types and environments}]
@@ -52,26 +143,59 @@ and sType =
 type environment = (char * multisetType) list
 \end{lstlisting}
 
-\begin{multicols}{3}[Titre sur une seule colonne.]
 \begin{lstlisting}[caption={Approximate normal forms}]
 type anf = 
   Omega
 | N of n
-\end{lstlisting}
-\columnbreak
-\begin{lstlisting}[caption={Approximate normal forms}]
 and n = 
   Lambda of char * n
 | L of l
+  and l =
+    Var of char
+  | App of l * anf
 \end{lstlisting}
-\columnbreak
-\begin{lstlisting}[caption={Approximate normal forms}]
-and l =
-  Var of char
-| App of l * anf
-\end{lstlisting}
-\end{multicols}
 
 
+\subsection{Tools (Partitions)}
+The algorithm uses lot of little helper functions to manipulate the data structures.
+
+In particular, the $\ienvSPlit$ function is able to list all the n-partitions of a given environment using another function, $\isplit$ which returns all the n-partitions of a multiset. It does a massive usage of List.map to iterate the split for each cases. Its complexity lie in the structure of environments which are lists of multisets which all needs to be divided.
+
+%\begin{minipage}{\textwidth}
+\begin{lstlisting}[caption={Partitions of an environment}]
+let rec envSplitsN n = function
+  [] -> [initList n]
+  | (x, tys)::tl -> let decoupes = splitsN tys n 
+                       and reste = envSplitsN n tl in
+    let decoupesX = 
+      (* Re-establishing 
+          the (x : multiset) list structure *)
+      List.map (fun paquets -> 
+        List.map (fun paquet -> 
+            (x, paquet)
+        ) paquets
+      ) decoupes in
+            
+    List.concat (
+      (* Adding to the rest all the different
+          choices for each var *)
+      List.map (fun envs -> 
+        (* For each choice of x 
+            we divide again the environments *)
+        List.map (fun decoupeX -> 
+          List.map2 (fun x env -> 
+            x::env
+          ) decoupeX envs
+        ) decoupesX
+      ) reste
+    )
+\end{lstlisting}
+%\end{minipage}
+
+\subsection{Inhabitation}
+This function is made of numerous sub-routines which reproduce the rules of the algorithm. The undeterminism is materialised by the concatenation of the different branches of the computation.
+
+\bibliographystyle{plain}
+\bibliography{main.bib}
 
 \end{document}

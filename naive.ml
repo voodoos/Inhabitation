@@ -135,9 +135,9 @@ and l =
   Var of char
 | App of l * anf
 
-type anf2 = 
+(*type anf2 = 
   Omega
-| Lambda of 
+| Lambda of *)
 
 let rec notIn x = function
     TheEnd | Omega -> true
