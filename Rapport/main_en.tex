@@ -29,7 +29,11 @@
 \newtheorem{Def}{Definition}
 
 \def\lcalc{$\lambda$-calculus}
+\def\lci{$\lambda$-calculi}
 \def\lterm{$\lambda$-term}
+\def\lterms{$\lambda$-terms}
+\def\sysm{system $\mathcal{M}$}
+
 
 \title{\textbf{Inhabitation Problem in lambda calculus with non-idempotent intersection types}}
 \author{Ulysse Gérard}
@@ -40,7 +44,7 @@
 \maketitle
 
 \section{Introduction}
-The operation of typing is well known in \lcalc. And numerous typing systems have been imagined to give a signification to \lterm s, attributing types to them. But the opposite problem exists, when we want to decide, given a type $A$ and a typing environment $\Gamma$, whether or not there exists a term $t$ such that $\Gamma \vdash t : A$ is provable. This problem is called the \emph{inhabitation problem}.
+The operation of typing is well known in \lcalc. And numerous typing systems have been imagined to give a signification to \lterms, attributing types to them. But the opposite problem exists, when we want to decide, given a type $A$ and a typing environment $\Gamma$, whether or not there exists a term $t$ such that $\Gamma \vdash t : A$ is provable. This problem is called the \emph{inhabitation problem}.
 The inhabitation problem has been studied for numerous type systems and proved to be undecidable for some of them. For example, the system $\mathcal{D}\Omega$ \cite{Kriv} which characterizes solvable terms shown in \ref{SDO} %Th3.10 ?
 has been proved to be undecidable by Urzyczyn \cite{Urz}. But others, simplified, type systems such as the  $\mathcal{S}$ and $\mathcal{S_r}$ systems of Van Bakel \cite{VBak} also turned out to be undecidable. All of these system are based on idempotent intersection types ($A\wedge A = A$).
 
@@ -81,6 +85,7 @@ The purpose of this work was to implement this algorithm in OCaml.
         {\Gamma_0 + \Gamma_1 + \cdots + \Gamma_i \vdash tu : \rho}
         \\ \\
         \text{For types } \sigma, \tau, \rho ::= \alpha \ | \ A \rightarrow \tau \qquad A ::= [\sigma_i]_{i \in I}
+        \\ \text{And where $+$ refers to the \emph{multiset union}, usually denoted $\uplus$.}
         \end{gather*}
     \end{mdframed}
     \caption{The  $\mathcal{M}$-system ($\mathcal{R}$-system of D. De Carvalho \cite{DeCarvalho})}
@@ -91,15 +96,27 @@ The purpose of this work was to implement this algorithm in OCaml.
 %\end{Def}
 
 \section {Definitions}
-The lambda-calculus and the non-idempotent intersection types system used are:
+The \lci\ and the non-idempotent intersection types used are:
 \begin{align*}
 	t, u, v &::= x\ |\ \lambda x.t\ |\ tu 
 	& \sigma, \tau, \rho &::= \alpha \ | A \rightarrow \tau \\
 	&& A &::= [\sigma_i]_{i \in I}
 \end{align*}
-where $\alpha$ belongs to a countable set of base types and $I$ is a finite set of indices. Non-idempotent intersection types are thought represented by multisets.
+where $\alpha$ belongs to a countable set of base types and $I$ is a finite set of indices. Non-idempotent intersection types are therefore represented by multisets.
 
-(Var) and ($\rightarrow$ I) are the same than in simply typed $\lambda$-calculus. The third one is interesting, it allows the system to type even non-strongly normalizing terms and implements the use of non-idempotent intersection types.
+In the type \sysm, represented in Fig. \ref{SDO}, rules (Var) and ($\rightarrow$ I) are the same than in simply typed $\lambda$-calculus. The third rule is the interesting one, it implements the use of non-idempotent intersection types and allows the system to type even non-strongly normalizing terms when $I = \emptyset$, for example:
+\begin{displaymath}
+    \inference[($\rightarrow$ E)]{[[] \rightarrow \alpha] \vdash x : [] \rightarrow \rho}{x : [[] \rightarrow \alpha] \vdash x((\lambda y.yy)(\lambda y.yy)) : \alpha}
+\end{displaymath}
+The term is typed, even if some of its subterms remain untyped. Thus a notation for these untyped subterms is needed in order to reconstruct the subject of a derivation, it is the standard notion of \emph{approximate normal form} (anf):
+\begin{align*}
+    a,b,c ::= \Omega\ |\ \mathcal{N} 
+    && \mathcal{N} ::= \lambda x.\mathcal{N}\ |\ \mathcal{L}
+    && \mathcal{L} ::= x\ |\ \mathcal{L}a
+\end{align*}
+And we write $\leq$ the smallest contextual order such that for all anf a, $\Omega \leq a$. Therefore, $a \leq t$ indicates the fact that t is obtained by replacing all the occurrences of $\Omega$ in a by terms.
+
+
 
 \section{The algorithm}
 \begin{figure}[h]
@@ -119,6 +136,12 @@ where $\alpha$ belongs to a countable set of base types and $I$ is a finite set 
   \caption{The inhabitation algorithm}
   \label{INH}
 \end{figure}
+The algorithm (Fig. \ref{INH}) is separated in three functions, $\iT$, $\iH$ and $\iTI$:
+\begin{itemize}
+\item $\iT(\Gamma, \sigma)$ contains all the anf a such that there exists a derivation $\Pi \triangleright \Gamma \vdash a : \sigma$ with $a = \mathcal{A}(\Pi)$. To build this set and then stop is the purpose of the inhabitation algorithm.
+\item $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ contains all the anf b such that a us a head subterm of b, and such that $a \in \iT(\Delta, \sigma) \Rightarrow b \in \iT(\Gamma + \Delta, \tau)$.
+\item $\iTI(\Gamma, [\sigma_i]_{i \in I})$ contains all the anf $a = \bigvee_{i\in I}a_i$ such that $ \Gamma = +_{i \in I} \Gamma_i $, $ a_i \in \iT(\Gamma_i, \sigma_i)\text{ for all }i \in I $ and $\uparrow_{i \in I}a_i$
+\end{itemize}
 
 \section{Implementation}
 This implementation of the inhabitation algorithm only uses basic OCaml structures. It literally follows the algorithm and builds a list of terms being given an environment and a type. The main algorithm involves a lot of undeterminism and it's implementation is not tail-recursive which makes it very memory greedy.
@@ -195,6 +218,11 @@ let rec envSplitsN n = function
 \subsection{Inhabitation}
 This function is made of numerous sub-routines which reproduce the rules of the algorithm. The undeterminism is materialised by the concatenation of the different branches of the computation.
 
+\section{Termination and soundness}
+
+\section{Conclusion}
+    Opening toward pattern matching etc.
+\newpage
 \bibliographystyle{plain}
 \bibliography{main.bib}
 
