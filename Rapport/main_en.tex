@@ -16,6 +16,18 @@
 
 \usepackage{multicol}
 
+% % Annexes
+\usepackage{appendix}
+
+%% Hack for minus signs in listings....
+\mathchardef\hyphenmathcode=\mathcode`\-
+\let\origlstlisting=\lstlisting
+\let\endoriglstlisting=\endlstlisting
+\renewenvironment{lstlisting}
+{\mathcode`\-=\hyphenmathcode
+    \everymath{}\mathsurround=0pt\origlstlisting}
+{\endoriglstlisting}
+
 %% Déclaration des fonctions mathématiques
 \DeclareMathOperator{\iT}{T}
 \DeclareMathOperator{\iH}{H}
@@ -45,8 +57,8 @@
 
 \section{Introduction}
 The operation of typing is well known in \lcalc. And numerous typing systems have been imagined to give a signification to \lterms, attributing types to them. But the opposite problem exists, when we want to decide, given a type $A$ and a typing environment $\Gamma$, whether or not there exists a term $t$ such that $\Gamma \vdash t : A$ is provable. This problem is called the \emph{inhabitation problem}.
-The inhabitation problem has been studied for numerous type systems and proved to be undecidable for some of them. For example, the system $\mathcal{D}\Omega$ \cite{Kriv} which characterizes solvable terms shown in \ref{SDO} %Th3.10 ?
-has been proved to be undecidable by Urzyczyn \cite{Urz}. But others, simplified, type systems such as the  $\mathcal{S}$ and $\mathcal{S_r}$ systems of Van Bakel \cite{VBak} also turned out to be undecidable. All of these system are based on idempotent intersection types ($A\wedge A = A$).
+The inhabitation problem has been studied for numerous type systems and proved to be undecidable for some of them. For example, the system $\mathcal{D}\Omega$ (Fig. \ref{SDO}) \cite{Kriv} which characterizes solvable terms. %Th3.10 ?
+has been proved to be undecidable by Urzyczyn \cite{Urz}. But others, simplified, type systems such as the  $\mathcal{S}$ and $\mathcal{S_r}$ systems of Van Bakel \cite{VBak} also turned out to be undecidable. All of these system are based on \emph{idempotent intersection types} ($A\wedge A = A$).
 
 \begin{figure}
     \begin{mdframed}
@@ -69,7 +81,7 @@ has been proved to be undecidable by Urzyczyn \cite{Urz}. But others, simplified
     \label{SDO}
 \end{figure}
 
-Recently, researchers from the PPS laboratory in France and the University of Turin in Italy shoved that the inhabitation problem was decidable for non-idempotent intersection types ($A\wedge A\neq A$) by exhibiting a sound and complete algorithm (Fig. \ref{INH}, p\pageref{INH}) \cite{Kes}. They used a typing system named system $\mathcal{M}$, which is the same as system $\mathcal{R}$ of R. De Carvalho \cite{DeCarvalho}.
+Recently, researchers from the PPS laboratory in France and the University of Turin in Italy shoved that the inhabitation problem was decidable for \emph{non-idempotent} intersection types ($A\wedge A\neq A$) by exhibiting a sound and complete algorithm (Fig. \ref{INH}, p\pageref{INH}) \cite{Kes}. They used a typing system named system $\mathcal{M}$, which is the same as system $\mathcal{R}$ of R. De Carvalho \cite{DeCarvalho}.
 
 The purpose of this work was to implement this algorithm in OCaml.
 
@@ -89,6 +101,7 @@ The purpose of this work was to implement this algorithm in OCaml.
         \end{gather*}
     \end{mdframed}
     \caption{The  $\mathcal{M}$-system ($\mathcal{R}$-system of D. De Carvalho \cite{DeCarvalho})}
+    \label{SM}
 \end{figure}
 
 %\begin{Def}
@@ -104,7 +117,7 @@ The \lci\ and the non-idempotent intersection types used are:
 \end{align*}
 where $\alpha$ belongs to a countable set of base types and $I$ is a finite set of indices. Non-idempotent intersection types are therefore represented by multisets.
 
-In the type \sysm, represented in Fig. \ref{SDO}, rules (Var) and ($\rightarrow$ I) are the same than in simply typed $\lambda$-calculus. The third rule is the interesting one, it implements the use of non-idempotent intersection types and allows the system to type even non-strongly normalizing terms when $I = \emptyset$, for example:
+In the type \sysm, represented in Fig. \ref{SM}, rules (Var) and ($\rightarrow$ I) are the same than in simply typed $\lambda$-calculus. The third rule is the interesting one, it implements the use of non-idempotent intersection types and allows the system to type even non-strongly normalizing terms when $I = \emptyset$, for example:
 \begin{displaymath}
     \inference[($\rightarrow$ E)]{[[] \rightarrow \alpha] \vdash x : [] \rightarrow \rho}{x : [[] \rightarrow \alpha] \vdash x((\lambda y.yy)(\lambda y.yy)) : \alpha}
 \end{displaymath}
@@ -124,7 +137,7 @@ And we write $\leq$ the smallest contextual order such that for all anf a, $\Ome
         \begin{gather*}
             \inference[(ABS)]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\iLambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
             \\ \\
-            \inference[(HEAD)]{a \in \iT^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
+            \inference[(HEAD)]{a \in \iH^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
             \\ \\
             \inference[(PREFIX)]{\Gamma = \Gamma_0 + \Gamma_1 & b \in \iTI(\Gamma_0, A) & a \in \iH^{\Delta + \Gamma_0}_{cb}(\Gamma_1, \sigma) \triangleright \tau}{a \in \iH^{\Delta}_c(\Gamma, A \rightarrow \sigma) \triangleright \tau}
             \\ \\
@@ -145,6 +158,8 @@ The algorithm (Fig. \ref{INH}) is separated in three functions, $\iT$, $\iH$ and
 
 \section{Implementation}
 This implementation of the inhabitation algorithm only uses basic OCaml structures. It literally follows the algorithm and builds a list of terms being given an environment and a type. The main algorithm involves a lot of undeterminism and it's implementation is not tail-recursive which makes it very memory greedy.
+
+The inhabitation routine in itself  is made of numerous sub-routines which reproduce the rules of the algorithm (Fig. \ref{INH}). It recursively constructs a list of the anfs found by exploring systematically all the reachable combinations of rules.
 
 \subsection{Types}
 The implementation of the inhabitation algorithm uses basic OCaml sum types with polymorphism and recursion. 
@@ -173,19 +188,166 @@ type anf =
 and n = 
   Lambda of char * n
 | L of l
-  and l =
-    Var of char
-  | App of l * anf
+and l =
+  Var of char
+| App of l * anf
 \end{lstlisting}
 
 
-\subsection{Tools (Partitions)}
-The algorithm uses lot of little helper functions to manipulate the data structures.
+\subsection{$\iT(\Gamma, \sigma)$}
+    
+\begin{lstlisting}
+let rec t (env: environment) (type0 : sType) fresh =
+match env, type0 with
+  ([], Fleche(type1, type2)) -> 
+        abs env fresh type1 type2
+  | (_, Fleche(type1, type2)) -> 
+        (abs env fresh type1 type2)@(head env type0 fresh)
+  | (_::_, _) -> head env type0 fresh
+  | (_,_) -> []
+\end{lstlisting}
 
-In particular, the $\ienvSPlit$ function is able to list all the n-partitions of a given environment using another function, $\isplit$ which returns all the n-partitions of a multiset. It does a massive usage of List.map to iterate the split for each cases. Its complexity lie in the structure of environments which are lists of multisets which all needs to be divided.
+The calculation of $\iT$ shows a first appearance of undeterminism. When the environment is not empty, and the type is an arrow one then two choices are foreseeable: ABS and HEAD.  This is solved by concatenating the results of the two calculations, thus loosing tail-recursion.
 
-%\begin{minipage}{\textwidth}
-\begin{lstlisting}[caption={Partitions of an environment}]
+\paragraph{Abs}
+\begin{displaymath}
+    \inference[]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\iLambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
+\end{displaymath}
+This rule only does a recursive call to $\iT$, but it can happens that $A = []$. In this case, $\Gamma + (x : []) = \Gamma$, x should not been added with empty type for convenience. 
+
+\paragraph{Head}
+\begin{displaymath}
+    \inference[]{a \in \iH^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
+\end{displaymath}
+
+Here appears another kind of undeterminism: the algorithm must apply the rule for each choice of a variable and a type in the environment. For example, if $\Gamma = \{(x : [\alpha \rightarrow \alpha, \alpha]), (y : [\alpha])\}$ then three choices are available: $x : [\alpha -> \alpha]$, $x : [\alpha]$ and $y : [\alpha]$.
+
+This is done by a helper function given in appendix \ref{a_extract}.
+
+\subsection{$\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$}
+\begin{lstlisting}
+let rec h (env1 : environment) (env2 : environment) (lf : l) 
+    (type1 : sType) (type2 : sType) fresh =
+  match env2, type1 with
+    ([], Fleche(typeA, typeS)) -> 
+        (final type1 type2 lf)
+            @(prefix env1 env2 lf typeA typeS type2 fresh)
+    | ([], type1) -> final type1 type2 lf
+    | (_, Fleche(typeA, typeS)) -> 
+        prefix env1 env2 lf typeA typeS type2 fresh
+    | (_, _) -> []
+\end{lstlisting}
+
+The calculation of $\iH$ uses two rules, Final and Prefix. Once again, a choice happens beetween multiple path, which are systematically explored by the algorithm and whose results are concatenated. 
+
+\paragraph{Prefix}
+\begin{displaymath}
+\inference[]{\Gamma = \Gamma_0 + \Gamma_1 & b \in \iTI(\Gamma_0, A) & a \in \iH^{\Delta + \Gamma_0}_{cb}(\Gamma_1, \sigma) \triangleright \tau}{a \in \iH^{\Delta}_c(\Gamma, A \rightarrow \sigma) \triangleright \tau}
+\end{displaymath}
+
+Over again, here appears a new undeterminism, the split of $\Gamma$ in two environments. This can be done in lot of ways, mostly because the multiset types themselves can be separated.
+
+For example, the environment $\Gamma = \{(x : [\alpha \rightarrow \alpha, \alpha]), (y : [\alpha])\}$ can give:
+\begin{align*}
+   \Gamma_0 &= \Gamma &&and&& \Gamma_1 = \emptyset
+   \\\Gamma_0 &= \{(x:[\alpha]), (y:[\alpha])\} &&and&& \Gamma_1 = \{(x:[\alpha -> \alpha])\}
+   \\\Gamma_0 &= \{(y:[\alpha])\} &&and&& \Gamma_1 = \{(x : [\alpha \rightarrow \alpha, \alpha])\}
+   \\\Gamma_0 &= \{(x : [\alpha \rightarrow \alpha, \alpha])\} &&and&& \Gamma_1 = \{(y:[\alpha])\}
+   \\&&&\vdots&&
+   \\\Gamma_0 &= \emptyset &&and&& \Gamma_1 = \Gamma
+\end{align*}
+
+Furthermore, the Union rule will need an environment to be partitioned in n parts. Thus a function has been created to list all the n-partitions of a given environment (using another one which returns all the n-partitions of a multiset). It does a massive usage of List.map to iterate the split for each cases. Its complexity lie in the structure of environments which are lists of multisets which all needs to be divided. It can be found in appendix \ref{a_part}. This algorithm will be detailed in the next section (\ref{ss_ti}).
+
+\subsection{$\iTI(\Gamma, [\sigma_i]_{i \in I})$ (Union)}
+\label{ss_ti}
+\begin{displaymath}
+    \inference[]{(a_i \in \iT(\Gamma_i, \sigma_i))_{i \in I} & \uparrow_{i \in I}a_i}{ \bigvee_{i \in I} a_i \in \iTI(+_{i \in I}\Gamma_i, [\sigma_i]_{i \in I}) }
+\end{displaymath}
+
+Union tries to find the least upper bound of the anf generated by $\iT$ for each partition of $\Gamma$. Normally, the algorithm should check that such a bound exists ($\uparrow_{i \in I}a_i$), but in fact it's existence it has been proven \cite{Kes}.
+
+To partition the environment, the same sub-routine than for Prefix is used, printed in appendix \ref{a_part}. This recursive algorithm has a very simple mechanism:
+Given a set $E$ and a integer $n$ For each element $e\in E$ it creates $n$ $n$-tuples with the $n$ distinct positions choices for $e$. Then it merges this list with the result of the same operation other the tail.
+
+For example, given the set $\{a,b,c\}$ and the integer 3, the computation will be:
+\begin{align*}
+    &\ [\ []\ ,\ []\ ,\ []\ ]\ &
+    \\&\ [\ [\ [c]\ ,\ []\ ,\ []\ ]\ ,\ [\ []\ ,\ [c]\ ,\ []\ ]\ ,\ [\ []\ ,\ []\ ,\ [c]\ ]\ ]\ &
+    \\&\ [\ [\ [cb]\ ,\ []\ ,\ []\ ]\ ,\ [\ [c]\ ,\ [b]\ ,\ []\ ]\ ,\ [\ [c]\ ,\ []\ ,\ [b]\ ]\ ,
+    \ [\ [b]\ ,\ [c]\ ,\ []\ ]\ ,&
+    \\&\ \ \ [\ []\ ,\ [cb]\ ,\ []\ ]\ ,\ [\ []\ ,\ [c]\ ,\ [b]\ ]\ ,
+    \ [\ [b]\ ,\ []\ ,\ [c]\ ]\ ,\ [\ []\ ,\ [b]\ ,\ [c]\ ]\ ,\ [\ []\ ,\ []\ ,\ [cb]\ ]\  ]&
+    \\&\ldots&
+\end{align*}
+
+\subsection{Execution examples}
+Quelques exemples détaillés d'éxecution, notamment avec Omega
+\section{Termination and soundness}
+Ici une (plus ou moins)rapide explication des preuves de terminaison et de correction de l'algorithme ?
+\section{Conclusion}
+Just a proof of concept, some optimisations may be needed for use with complex types.
+Opening toward more complex lambda-calculus: with pair and projections, and more widely pattern calculi. (ref)
+
+
+\newpage
+\bibliographystyle{plain}
+\bibliography{main.bib}
+
+\newpage
+\appendix
+\section{Extracting a var from an environment}
+\label{a_extract}
+\begin{lstlisting}
+(* Given a multiset, returns a list of couples
+(var extracted, rest of the multiset) (tail-recursive) *)
+let extractMS l =
+  let rec aux acc acc2 = function
+    Empty -> acc2
+    | Cons(h, t) -> 
+  (aux (Cons(h, acc)) ((h, concat acc t)::acc2) t)
+in aux Empty [] l
+\end{lstlisting}
+
+
+\begin{lstlisting}
+(* Returns all the extractions of a var and a type 
+from a given  environment *)
+let envExtracts (env : environment) = 
+  let rec aux acc acc2 = function
+    [] -> acc2
+    | (x, types)::t -> 
+        (aux ((x, types)::acc) ((List.map (fun ex -> 
+    let (e, tail) = ex in 
+    let elt = Cons(e, Empty) in 
+    match tail with
+      Empty -> ((x, elt), t@acc)
+      | _ -> 
+((x, elt), (x, tail)::t@acc)) (extractMS types))@acc2) t) 
+
+  in aux [] [] env
+\end{lstlisting}
+
+\newpage
+\section{Partitions of an environment}
+\label {a_part}
+\begin{lstlisting}
+let rec splitsN ms n = 
+  (* Add an element to a split in every possible way (tr) *)
+  let rec add decoupe acc acc2 x = match decoupe with 
+    [] -> acc2
+    | h::tl -> 
+        add tl (h::acc) ((acc@(Cons(x, h)::tl))::acc2) x
+  in
+   
+  match ms with
+    Empty -> [initMS n] (* [[ [];[];[];...;[] ]] *)
+    | Cons(h, tl) -> let reste = (splitsN tl n) in
+       List.concat (
+         List.map (fun d ->  (add d [] [] h)) reste
+       )
+\end{lstlisting}
+\begin{lstlisting}
 let rec envSplitsN n = function
   [] -> [initList n]
   | (x, tys)::tl -> let decoupes = splitsN tys n 
@@ -213,17 +375,8 @@ let rec envSplitsN n = function
       ) reste
     )
 \end{lstlisting}
-%\end{minipage}
 
-\subsection{Inhabitation}
-This function is made of numerous sub-routines which reproduce the rules of the algorithm. The undeterminism is materialised by the concatenation of the different branches of the computation.
-
-\section{Termination and soundness}
-
-\section{Conclusion}
-    Opening toward pattern matching etc.
 \newpage
-\bibliographystyle{plain}
-\bibliography{main.bib}
-
+\section{The inhabitation algorithm}
+Code définitif de l'algorithme
 \end{document}
