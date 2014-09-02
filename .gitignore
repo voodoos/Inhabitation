@@ -1,4 +1,17 @@
+*#
+*.blg
+*.cmi
+*.cmo
+*.bbl
+*.bld
 *~
 .*
 *.pdf
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.gz
+*.toc
 
