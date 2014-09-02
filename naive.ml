@@ -72,14 +72,7 @@ and sType =
   Var of char
 | Fleche of multisetType * sType
 
-type environment = (char * multisetType) list
-
-
-(* Détermine la vidité d'un environement (tr) *)
-let rec envIsEmpty = function
-  | [] -> true
-  | (_, Empty)::tl -> envIsEmpty tl
-  | _ -> false
+type environment = (int * multisetType) list
 
 (* Liste les découpes possibles d'un environnement *)
 let rec envSplitsN n = function
@@ -92,9 +85,10 @@ let rec envSplitsN n = function
 		    List.concat (
 		      List.map (fun envs -> (* Pour chaque choix pour x on divise encore les environements *)
 			List.map (fun decoupeX -> 
-			  List.map2 (fun x env -> x::env) decoupeX envs) decoupesX) reste)
+			  List.map2 (fun x env -> 
+			    if snd(x) = Empty then env else (x::env)) decoupeX envs) decoupesX) reste)
 		    
-(* let test22 = envSplitsN 3 [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty))] *)
+let test22 = envSplitsN 3 [(1, Cons(Var('a'), Cons(Var('b'), Empty)));(2, Cons(Var('c'), Empty))]
 
 (* Liste les extractions possibles de couples var /type d'un env (tr) *)
 let envExtracts (env : environment) = 
@@ -128,10 +122,10 @@ type anf =
 | Omega
 | N of n
 and n = 
-  Lambda of char * n
+  Lambda of int * n
 | L of l
 and l =
-  Var of char
+  Var of int
 | App of l * anf
 
 (*type anf2 = 
@@ -142,12 +136,12 @@ let rec notIn x = function
     TheEnd | Omega -> true
   | N(n) -> niN x n
 and niN x = function
-    Lambda(c, n) when c = x -> false
-  | Lambda(c, n) -> niN x n
+    Lambda(y, n) when y = x -> false
+  | Lambda(_, n) -> niN x n
   | L(l) -> niL x l
 and niL x = function
-    Var(c) when x = c -> false
-  | Var(c) -> true
+    Var(y) when x = y -> false
+  | Var(_) -> true
   | App(l, a) -> (niL x l)&&(notIn x a)
 
 (* Alpha conversion *)
@@ -160,11 +154,11 @@ and alphaN x y = function
   | Lambda(c, n) -> Lambda(c, alphaN x y n)
   | L(l) -> L(alphaL x y l)
 and alphaL x y = function
-    Var(c) when c = x -> Var(y)
-  | Var(c) -> Var(c)
+    Var(z) when z = x -> Var(y)
+  | Var(z) -> Var(z)
   | App(l, a) -> App(alphaL x y l, alpha x y a)
 
-let tititoto = alpha 'x' 'y'  (N(Lambda('x', L(Var('y')))))
+let tititoto = alpha 1 2  (N(Lambda(1, L(Var(2)))))
 
 (* Max of two anf *)
 let rec compAnf a b = match a, b with
@@ -182,7 +176,7 @@ and compLf a b = match a, b with
   | _, _ -> failwith "Arg no Least upper bound found !"
 
 
-let tototata = compAnf (N(Lambda('x', L(App(Var('y'), Omega))))) (N(Lambda('z', L(App(Var('y'), N(L(Var('z'))))))))
+let tototata = compAnf (N(Lambda(1, L(App(Var(2), Omega))))) (N(Lambda(3, L(App(Var(2), N(L(Var(3))))))))
 
 let rec compAnfs = function
 [] -> Omega
@@ -192,7 +186,7 @@ let rec compAnfs = function
 
 (* Affichage *)
 let rec stringOfSType (t : sType) = match t with
-    Var(c) -> String.make 1 c
+    Var(c) -> String.make 1  c
   | Fleche(ms, s) -> (stringOfMSType ms)^" -> "^ stringOfSType s
 
 and stringOfMSType mst =
@@ -208,18 +202,18 @@ let rec stringOfEnv e =
   let rec aux =  function 
     [] -> "]"
   | (x, type0)::tl -> if List.length tl  > 0 then 
-      "(" ^ (String.make 1 x) ^ ": " ^ (stringOfMSType type0) ^ ");" ^ aux tl
-    else "(" ^ (String.make 1 x) ^ ": " ^ (stringOfMSType type0) ^ ")]"
+      "(" ^ (string_of_int x) ^ ": " ^ (stringOfMSType type0) ^ ");" ^ aux tl
+    else "(" ^ (string_of_int x) ^ ": " ^ (stringOfMSType type0) ^ ")]"
   in "["^aux e
 
 let rec anfToString  = function
     TheEnd | Omega -> "Omega"
   | N(n) -> nToString n
 and nToString = function
-  | Lambda(c, n) -> "Lambda ("^String.make 1 c^", "^nToString n^")"
+  | Lambda(x, n) -> "Lambda ("^string_of_int x^", "^nToString n^")"
   | L(l) -> lToString l
 and lToString = function
-    Var(c) -> String.make 1 c
+    Var(x) -> string_of_int x
   | App(l, anf) -> "App("^lToString l^", "^anfToString anf^")"
 
 let rec printAnfList = function
@@ -231,15 +225,15 @@ let rec printAnfList = function
 
 
 (* Inhabitation algorithm *)
-let inhabitation (env: environment) (type0 : sType) =
-  let rec t (env: environment) (type0 : sType) (fresh : char list) =
+let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
+  let rec t (env: environment) (type0 : sType) (fresh : int) =
 
     print_string ("T : " ^ (stringOfEnv env) ^ ", " ^ (stringOfSType type0) ^ "\n");
 
     match env, type0 with
     (* Si type fleche, alors (abs) s'applique, de plus on doit appliquer (Head) pour chaque extraction possible d'un couple Var / Type de l'environnement *)
       (* ABS *)
-      (e, Fleche(type1, type2)) when envIsEmpty e -> abs env fresh type1 type2
+      ([], Fleche(type1, type2)) -> abs env fresh type1 type2
       (* ABS + HEAD *)
     | (_::_, Fleche(type1, type2)) -> (abs env fresh type1 type2)@(head env type0 fresh)
       (* HEAD *)
@@ -247,12 +241,15 @@ let inhabitation (env: environment) (type0 : sType) =
     | (_,_) -> []
 
 
-  and abs (env : environment) fresh (type0 : multisetType) (type1 : sType) = 
+  and abs (env : environment) (fresh : int) (type0 : multisetType) (type1 : sType) = 
 
     print_string ("ABS : " ^ (stringOfEnv env) ^ ", " ^ (stringOfMSType type0) ^ ", " ^ (stringOfSType type1) ^ "\n");
 
     (* On prend une variable fraiche et on appelle récursivement t *)
-    List.map (fun elt -> Lambda(List.hd fresh, elt)) (t ((List.hd fresh, type0)::env) type1 (List.tl fresh))
+    if type0 = Empty then
+      List.map (fun elt -> Lambda(fresh, elt)) (t env type1 (fresh + 1))
+    else
+      List.map (fun elt -> Lambda(fresh, elt)) (t ((fresh, type0)::env) type1 (fresh + 1))
 
  (* ATTENTION Gamma, x : [] = Gamma !!!!!!
 !!!!!!!! *)
@@ -280,9 +277,9 @@ let inhabitation (env: environment) (type0 : sType) =
 
     match env2, type1 with
     (* FINAL + PREFIX *)
-      (e, Fleche(typeA, typeS)) when envIsEmpty e -> (final type1 type2 lf)@(prefix env1 env2 lf typeA typeS type2 fresh)
+      ([], Fleche(typeA, typeS)) -> (final type1 type2 lf)@(prefix env1 env2 lf typeA typeS type2 fresh)
     (* FINAL *)
-    | (e, type1) when envIsEmpty e-> final type1 type2 lf
+    | ([], type1)-> final type1 type2 lf
     (* PREFIX *)
     | (_, Fleche(typeA, typeS)) -> prefix env1 env2 lf typeA typeS type2 fresh
     | (_, _) -> []
@@ -334,7 +331,7 @@ let inhabitation (env: environment) (type0 : sType) =
 	if(List.length nList > 0) then (compAnfs nList) else TheEnd
       end
 	
-  in t env type0 ['x';'y';'z';'p';'q';'r';'s';'t'];;
+  in t env type0 minFresh;;
 
 let toto = inhabitation [] (
   Fleche(
@@ -343,7 +340,7 @@ let toto = inhabitation [] (
 	, Empty), 
     Fleche(Cons(Var('a'), Empty), Var('a'))
   )
-)
+) 1
 
 let tata = inhabitation [] (
     Fleche(
@@ -356,7 +353,8 @@ let tata = inhabitation [] (
       ),
       Var('a')
     )
-)
+) 1
 
 
-let test = inhabitation [('x', Cons(Fleche(Cons(Var('a'), Empty), Var('a')), Empty))] (Var('a'));;
+let test = inhabitation [(1, Cons(Fleche(Cons(Var('a'), Empty), Var('a')), Empty))] (Var('a')) 2
+;;
