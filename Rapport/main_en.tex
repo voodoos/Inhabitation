@@ -12,7 +12,7 @@
 
 %% Code listings
 \usepackage{listings}
-\lstset{language=[Objective]Caml, frame=none, captionpos=b, frame=single}
+\lstset{language=[Objective]Caml, captionpos=b, frame=single}
 
 \usepackage{multicol}
 
@@ -39,12 +39,18 @@
 
 %% Environnements maths (amsthm)
 \newtheorem{Def}{Definition}
+\newtheorem{Ex}{Example}
+\newtheorem*{Ex*}{Example}
 
 \def\lcalc{$\lambda$-calculus}
 \def\lci{$\lambda$-calculi}
 \def\lterm{$\lambda$-term}
 \def\lterms{$\lambda$-terms}
+\def\aconv{$\alpha$-conversion}
 \def\sysm{system $\mathcal{M}$}
+\def\ver{\ |\ }
+
+\newcommand{\sslash}{\mathbin{/\mkern-6mu/}}
 
 
 \title{\textbf{Inhabitation Problem in lambda calculus with non-idempotent intersection types}}
@@ -57,8 +63,24 @@
 
 \section{Introduction}
 The operation of typing is well known in \lcalc. And numerous typing systems have been imagined to give a signification to \lterms, attributing types to them. But the opposite problem exists, when we want to decide, given a type $A$ and a typing environment $\Gamma$, whether or not there exists a term $t$ such that $\Gamma \vdash t : A$ is provable. This problem is called the \emph{inhabitation problem}.
-The inhabitation problem has been studied for numerous type systems and proved to be undecidable for some of them. For example, the system $\mathcal{D}\Omega$ (Fig. \ref{SDO}) \cite{Kriv} which characterizes solvable terms. %Th3.10 ?
-has been proved to be undecidable by Urzyczyn \cite{Urz}. But others, simplified, type systems such as the  $\mathcal{S}$ and $\mathcal{S_r}$ systems of Van Bakel \cite{VBak} also turned out to be undecidable. All of these system are based on \emph{idempotent intersection types} ($A\wedge A = A$).
+\begin{figure}
+    \begin{mdframed}
+        \begin{gather*}
+        \inference[]{}{\Gamma, x:A\vdash x:A}
+        \qquad \inference[]{\Gamma, x:A \vdash t:B}{\Gamma \vdash \lambda x.t:A->B}
+        \\ \\ \inference[]{\Gamma \vdash t : A -> B & \Gamma \vdash u : A} {\Gamma \vdash tu : B}
+        \\ \\ \text{For types } A, B ::= \tau\ver A \rightarrow B
+        \end{gather*}
+    \end{mdframed}
+    \caption{Simple types}
+    \label{STY}
+\end{figure}
+
+
+The inhabitation problem has been studied for numerous type systems. For example, simply typed \lcalc (Fig. \ref{STY}), a type system \emph{without intersection types} has a decidable inhabitation problem. However, these types do not characterize \emph{strongly-normalizing terms}: simply typed terms are strongly-normalizing, but there exists strongly-normalizing terms which are not simply-typable ($\lambda x.xx$). That is why \emph{intersection types} have been introduced.
+
+This being, types systems with \emph{idempotent intersection types} take a step toward abstraction and become undecidable. They are no more suitable to describe programming languages, but can be useful tools to understand \lcalc. For example, the system $\mathcal{D}\Omega$ (Fig. \ref{SDO}) \cite{Kriv} which characterizes solvable terms. %Th3.10 ?
+has been proved to be undecidable by Urzyczyn \cite{Urz}. And others, simplified, type systems such as the  $\mathcal{S}$ and $\mathcal{S_r}$ systems of Van Bakel \cite{VBak} also turned out to be undecidable. All of these system are based on \emph{idempotent intersection types} ($A\wedge A = A$) which also enjoy \emph{associativity} ($(A\wedge B)\wedge C = A\wedge (B\wedge C)$) and \emph{commutativity} ($A\wedge B=B\wedge A$).
 
 \begin{figure}
     \begin{mdframed}
@@ -69,7 +91,7 @@ has been proved to be undecidable by Urzyczyn \cite{Urz}. But others, simplified
         \qquad
         \inference[]{\Gamma \vdash t : A \rightarrow B \quad \Gamma \vdash u : A}{\Gamma \vdash tu : B}
         \\
-        \inference[]{\Gamma t : A \wedge B}{\Gamma \vdash t : A \quad \Gamma t : B}
+        \inference[]{\Gamma t : A \wedge B}{\Gamma \vdash t : A \quad \Gamma \vdash t : B}
         \qquad
         \inference[]{\Gamma \vdash t : A \quad \Gamma \vdash t : B}{\Gamma \vdash t : A \wedge B}
         \qquad
@@ -115,11 +137,25 @@ The \lci\ and the non-idempotent intersection types used are:
 	& \sigma, \tau, \rho &::= \alpha \ | A \rightarrow \tau \\
 	&& A &::= [\sigma_i]_{i \in I}
 \end{align*}
-where $\alpha$ belongs to a countable set of base types and $I$ is a finite set of indices. Non-idempotent intersection types are therefore represented by multisets.
+where $\alpha$ belongs to a countable set of base types and $I$ is a finite set of indices. Non-idempotent intersection types are therefore represented by multisets ($A\wedge B$ is $[A,B]$).
+
+All \lterms\ are defined \emph{modulo \aconv}, that is to say modulo replacing of bound vars by fresh ones: $\lambda x.t =_\alpha \lambda y.t[x\sslash y] \text{ for $y$ fresh}$
+
+The $\beta$-reduction rule is as usual $(\lambda x.t) u ->_\beta t\{x/u\}$, defined \emph{modulo \aconv}, where $t\{x/u\}$ means replacing all the \emph{free occurrences} of $x$ in $t$ by $u$.
+
+\begin{Ex*}
+    \begin{displaymath}
+        (\lambda x.(\lambda y. xy)) y 
+        =_\alpha (\lambda x.(\lambda z. xz)) y
+        \\->_\beta \lambda z.(xz)\{x/y\}
+        =\lambda z.(x\{x/y\})(z\{x/y\})
+        = \lambda z.yz
+    \end{displaymath}
+\end{Ex*}
 
 In the type \sysm, represented in Fig. \ref{SM}, rules (Var) and ($\rightarrow$ I) are the same than in simply typed $\lambda$-calculus. The third rule is the interesting one, it implements the use of non-idempotent intersection types and allows the system to type even non-strongly normalizing terms when $I = \emptyset$, for example:
 \begin{displaymath}
-    \inference[($\rightarrow$ E)]{[[] \rightarrow \alpha] \vdash x : [] \rightarrow \rho}{x : [[] \rightarrow \alpha] \vdash x((\lambda y.yy)(\lambda y.yy)) : \alpha}
+    \inference[($\rightarrow$ E)]{x:[[] \rightarrow \alpha] \vdash x : [] \rightarrow \alpha}{x : [[] \rightarrow \alpha] \vdash x((\lambda y.yy)(\lambda y.yy)) : \alpha}
 \end{displaymath}
 The term is typed, even if some of its subterms remain untyped. Thus a notation for these untyped subterms is needed in order to reconstruct the subject of a derivation, it is the standard notion of \emph{approximate normal form} (anf):
 \begin{align*}
@@ -127,11 +163,14 @@ The term is typed, even if some of its subterms remain untyped. Thus a notation 
     && \mathcal{N} ::= \lambda x.\mathcal{N}\ |\ \mathcal{L}
     && \mathcal{L} ::= x\ |\ \mathcal{L}a
 \end{align*}
-And we write $\leq$ the smallest contextual order such that for all anf a, $\Omega \leq a$. Therefore, $a \leq t$ indicates the fact that t is obtained by replacing all the occurrences of $\Omega$ in a by terms.
+And we write $\leq$ the smallest contextual order such that for all anf a, $\Omega \leq a$. Therefore, $a \leq a'$ indicates the fact that $a'$ is obtained by replacing some off the occurrences of $\Omega$ in $a$ by terms.
 
-
+\begin{Ex*}
+    $\lambda x.x\Omega\Omega \leq \lambda x.x\Omega y \leq \lambda x.xzy$
+\end{Ex*}
 
 \section{The algorithm}
+Given an environment and a type, the algorithm constructs all the approximate normal forms inhabiting this type. This is done by exploring a vast tree of possibilities in a non-deterministic way. The algorithm (Fig. \ref{INH}) is separated in three functions, $\iT$, $\iH$ and $\iTI$:
 \begin{figure}[h]
     \begin{mdframed}
         \begin{gather*}
@@ -149,7 +188,6 @@ And we write $\leq$ the smallest contextual order such that for all anf a, $\Ome
   \caption{The inhabitation algorithm}
   \label{INH}
 \end{figure}
-The algorithm (Fig. \ref{INH}) is separated in three functions, $\iT$, $\iH$ and $\iTI$:
 \begin{itemize}
 \item $\iT(\Gamma, \sigma)$ contains all the anf a such that there exists a derivation $\Pi \triangleright \Gamma \vdash a : \sigma$ with $a = \mathcal{A}(\Pi)$. To build this set and then stop is the purpose of the inhabitation algorithm.
 \item $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ contains all the anf b such that a us a head subterm of b, and such that $a \in \iT(\Delta, \sigma) \Rightarrow b \in \iT(\Gamma + \Delta, \tau)$.
@@ -157,7 +195,7 @@ The algorithm (Fig. \ref{INH}) is separated in three functions, $\iT$, $\iH$ and
 \end{itemize}
 
 \section{Implementation}
-This implementation of the inhabitation algorithm only uses basic OCaml structures. It literally follows the algorithm and builds a list of terms being given an environment and a type. The main algorithm involves a lot of undeterminism and it's implementation is not tail-recursive which makes it very memory greedy.
+This implementation of the inhabitation algorithm only uses basic OCaml structures. It literally follows the algorithm and builds a list of terms being given an environment and a type. The main algorithm involves different kinds of non-determinism.
 
 The inhabitation routine in itself  is made of numerous sub-routines which reproduce the rules of the algorithm (Fig. \ref{INH}). It recursively constructs a list of the anfs found by exploring systematically all the reachable combinations of rules.
 
@@ -194,7 +232,7 @@ and l =
 \end{lstlisting}
 
 
-\subsection{$\iT(\Gamma, \sigma)$}
+\subsection{The main function}
     
 \begin{lstlisting}
 let rec t (env: environment) (type0 : sType) fresh =
@@ -207,27 +245,27 @@ match env, type0 with
   | (_,_) -> []
 \end{lstlisting}
 
-The calculation of $\iT$ shows a first appearance of undeterminism. When the environment is not empty, and the type is an arrow one then two choices are foreseeable: ABS and HEAD.  This is solved by concatenating the results of the two calculations, thus loosing tail-recursion.
+The calculation of $\iT(\Gamma, \sigma)$ shows a first use of non-determinism. When the environment is not empty, and the type is an arrow one, then two choices are foreseeable: ABS and HEAD.  This is solved by concatenating the results of the two calculations, thus loosing tail-recursion.
 
 \paragraph{Abs}
 \begin{displaymath}
     \inference[]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\iLambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
 \end{displaymath}
-This rule only does a recursive call to $\iT$, but it can happens that $A = []$. In this case, $\Gamma + (x : []) = \Gamma$, x should not been added with empty type for convenience. 
+This rule only does a recursive call to $\iT$, but it can happens that $A = []$. In this case, $\Gamma + (x : []) = \Gamma$, and x should not been added with empty type for convenience. 
 
 \paragraph{Head}
 \begin{displaymath}
     \inference[]{a \in \iH^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
 \end{displaymath}
 
-Here appears another kind of undeterminism: the algorithm must apply the rule for each choice of a variable and a type in the environment. For example, if $\Gamma = \{(x : [\alpha \rightarrow \alpha, \alpha]), (y : [\alpha])\}$ then three choices are available: $x : [\alpha -> \alpha]$, $x : [\alpha]$ and $y : [\alpha]$.
+Here appears another kind of non-determinism: the algorithm must apply the rule for each choice of a variable and a type in the environment. For example, if $\Gamma = \{(y : [\alpha \rightarrow \alpha, \alpha]), (z : [\alpha])\}$ then three choices are available for $x:[\sigma]$: $y : [\alpha -> \alpha]$, $y : [\alpha]$ and $z : [\alpha]$.
 
-This is done by a helper function given in appendix \ref{a_extract}.
+This is done by an auxiliary function given in appendix \ref{a_extract}.
 
-\subsection{$\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$}
+\subsection{The $\iH$ function}
 \begin{lstlisting}
-let rec h (env1 : environment) (env2 : environment) (lf : l) 
-    (type1 : sType) (type2 : sType) fresh =
+let rec h (env1 : environment) (env2 : environment)
+    (lf : l) (type1 : sType) (type2 : sType) fresh =
   match env2, type1 with
     ([], Fleche(typeA, typeS)) -> 
         (final type1 type2 lf)
@@ -238,14 +276,22 @@ let rec h (env1 : environment) (env2 : environment) (lf : l)
     | (_, _) -> []
 \end{lstlisting}
 
-The calculation of $\iH$ uses two rules, Final and Prefix. Once again, a choice happens beetween multiple path, which are systematically explored by the algorithm and whose results are concatenated. 
+The calculation of $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ uses two rules, Final and Prefix. Once again, a choice happens between multiple path, which are systematically explored by the algorithm and whose results are concatenated. 
+
+\begin{lstlisting}[frame=single]
+val prefix : environment -> environment -> l
+-> multisetType -> sType -> sType -> int -> n list = <fun>
+\end{lstlisting}
+\begin{lstlisting}[frame=single]
+val final : sType -> sType -> l -> n list = <fun>
+\end{lstlisting}
 
 \paragraph{Prefix}
 \begin{displaymath}
 \inference[]{\Gamma = \Gamma_0 + \Gamma_1 & b \in \iTI(\Gamma_0, A) & a \in \iH^{\Delta + \Gamma_0}_{cb}(\Gamma_1, \sigma) \triangleright \tau}{a \in \iH^{\Delta}_c(\Gamma, A \rightarrow \sigma) \triangleright \tau}
 \end{displaymath}
 
-Over again, here appears a new undeterminism, the split of $\Gamma$ in two environments. This can be done in lot of ways, mostly because the multiset types themselves can be separated.
+Over again, here appears a new non-determinism, the split of $\Gamma$ in two environments. This can be done in lot of ways, mostly because the multiset types themselves can be split.
 
 For example, the environment $\Gamma = \{(x : [\alpha \rightarrow \alpha, \alpha]), (y : [\alpha])\}$ can give:
 \begin{align*}
@@ -259,13 +305,18 @@ For example, the environment $\Gamma = \{(x : [\alpha \rightarrow \alpha, \alpha
 
 Furthermore, the Union rule will need an environment to be partitioned in n parts. Thus a function has been created to list all the n-partitions of a given environment (using another one which returns all the n-partitions of a multiset). It does a massive usage of List.map to iterate the split for each cases. Its complexity lie in the structure of environments which are lists of multisets which all needs to be divided. It can be found in appendix \ref{a_part}. This algorithm will be detailed in the next section (\ref{ss_ti}).
 
-\subsection{$\iTI(\Gamma, [\sigma_i]_{i \in I})$ (Union)}
+\subsection{The $\iTI$ (Union) function}
 \label{ss_ti}
+
+\begin{lstlisting}
+val union : env -> multisetType -> int -> anf = <fun>
+\end{lstlisting}
+
 \begin{displaymath}
     \inference[]{(a_i \in \iT(\Gamma_i, \sigma_i))_{i \in I} & \uparrow_{i \in I}a_i}{ \bigvee_{i \in I} a_i \in \iTI(+_{i \in I}\Gamma_i, [\sigma_i]_{i \in I}) }
 \end{displaymath}
 
-Union tries to find the least upper bound of the anf generated by $\iT$ for each partition of $\Gamma$. Normally, the algorithm should check that such a bound exists ($\uparrow_{i \in I}a_i$), but in fact it's existence it has been proven \cite{Kes}.
+Union tries to find the least upper bound of the anfs generated by $\iT(\Gamma, [\sigma_i]_{i \in I})$ for each partition of $\Gamma$. Normally, the algorithm should check that such a bound exists ($\uparrow_{i \in I}a_i$), but in fact it's existence it has been proven \cite{Kes}.
 
 To partition the environment, the same sub-routine than for Prefix is used, printed in appendix \ref{a_part}. This recursive algorithm has a very simple mechanism:
 Given a set $E$ and a integer $n$ For each element $e\in E$ it creates $n$ $n$-tuples with the $n$ distinct positions choices for $e$. Then it merges this list with the result of the same operation other the tail.

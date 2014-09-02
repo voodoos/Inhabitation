@@ -96,7 +96,6 @@ let rec envSplitsN n = function
 		    
 (* let test22 = envSplitsN 3 [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty))] *)
 
-
 (* Liste les extractions possibles de couples var /type d'un env (tr) *)
 let envExtracts (env : environment) = 
   let rec aux acc acc2 = function
@@ -255,6 +254,9 @@ let inhabitation (env: environment) (type0 : sType) =
     (* On prend une variable fraiche et on appelle récursivement t *)
     List.map (fun elt -> Lambda(List.hd fresh, elt)) (t ((List.hd fresh, type0)::env) type1 (List.tl fresh))
 
+ (* ATTENTION Gamma, x : [] = Gamma !!!!!!
+!!!!!!!! *)
+
   and head (env : environment) (type0 : sType) fresh = 
 
     print_string ("HEAD : " ^ (stringOfEnv env) ^ ", " ^ (stringOfSType type0) ^ "\n");
@@ -355,3 +357,6 @@ let tata = inhabitation [] (
       Var('a')
     )
 )
+
+
+let test = inhabitation [('x', Cons(Fleche(Cons(Var('a'), Empty), Var('a')), Empty))] (Var('a'));;
