@@ -41,6 +41,8 @@
 \newtheorem{Def}{Definition}
 \newtheorem{Ex}{Example}
 \newtheorem*{Ex*}{Example}
+\newtheorem*{Th*}{Theorem}
+\newtheorem*{Lem*}{Lemma}
 
 \def\lcalc{$\lambda$-calculus}
 \def\lci{$\lambda$-calculi}
@@ -334,8 +336,36 @@ For example, given the set $\{a,b,c\}$ and the integer 3, the computation will b
 
 \subsection{Execution examples}
 Quelques exemples détaillés d'éxecution, notamment avec Omega
-\section{Termination and soundness}
-Ici une (plus ou moins)rapide explication des preuves de terminaison et de correction de l'algorithme ?
+\section{Termination, soundness and completeness}
+The proofs of these properties are in the original article \cite{Kes}, we will just explain some aspects of these proofs.
+
+\begin{Th*}[Termination]
+    The inhabitation algorithm terminates.
+\end{Th*}
+
+\begin{proof}
+    To prove the termination of the algorithm, it is necessary to show that the predicates $\iT(\Gamma, \sigma)$, $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ and $\iTI(\Gamma, [\sigma_i]_{i \in I})$ are well defined finite sets. This is proved by induction of their arguments on the following measure:
+    \begin{align*}
+    \#(\alpha) &= 1 & \#([\sigma_i]_{i\in I}) &= \textstyle \sum_{i\in I}\#(\sigma_i) +1
+    \\ \#(A -> \rho) &= \#(A) + \#(\rho) + 1 & \#(\Gamma) &= \textstyle \sum_{x\in dom(\Gamma)} \#(\Gamma(x))
+    \end{align*}
+\end{proof}
+
+ To prove soundness and completeness it necessary to link runs of the algorithm with typings of approximate normal forms in \sysm:
+ \begin{Lem*}
+ $a \in \iT(\Gamma, \sigma) <=> \exists\Pi\triangleright\Gamma\vdash a : \sigma \text{ such that } a = \mathcal{A}(\Pi)$
+\end{Lem*}
+
+\begin{Th*}[Soundness]
+    $a \in \iT(\Gamma, \sigma) => \forall t, (a \leq t => \Gamma \vdash t : \sigma)$
+\end{Th*}
+
+\begin{Th*}[Completeness]
+    If $\Pi \triangleright \Gamma \vdash t : \sigma$ then there exists $\Pi ' \triangleright \Gamma \vdash t' : \sigma$ such that $t'$ is in \emph{$\Pi$'-normal form} and the minimal approximant of $t'$ is in $\iT(\Gamma, \sigma)$
+\end{Th*}
+ 
+
+
 \section{Conclusion}
 Just a proof of concept, some optimisations may be needed for use with complex types.
 Opening toward more complex lambda-calculus: with pair and projections, and more widely pattern calculi. (ref)

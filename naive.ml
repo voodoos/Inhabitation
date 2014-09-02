@@ -88,7 +88,7 @@ let rec envSplitsN n = function
 			  List.map2 (fun x env -> 
 			    if snd(x) = Empty then env else (x::env)) decoupeX envs) decoupesX) reste)
 		    
-let test22 = envSplitsN 3 [(1, Cons(Var('a'), Cons(Var('b'), Empty)));(2, Cons(Var('c'), Empty))]
+(* let test22 = envSplitsN 3 [(1, Cons(Var('a'), Cons(Var('b'), Empty)));(2, Cons(Var('c'), Empty))] *)
 
 (* Liste les extractions possibles de couples var /type d'un env (tr) *)
 let envExtracts (env : environment) = 
@@ -101,7 +101,7 @@ let envExtracts (env : environment) =
 					 | _ -> ((x, elt), (x, tail)::t@acc)) (extractMS types))@ acc2) t) in
   aux [] [] env
 
-(* let test4 = envExtracts [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));] *)
+(* let test4 = envExtracts [(1, Cons(Var('a'), Cons(Var('b'), Empty)));(2, Cons(Var('c'), Empty));] *)
 
 (* Fusionne deux environnements (tr) *)
 let rec envFusion (env0 : environment) (env1 : environment) = 
@@ -114,7 +114,7 @@ let rec envFusion (env0 : environment) (env1 : environment) =
     [] -> env1
   | h::t -> envFusion t (aux h [] env1)
 
-(* let test5 = envFusion [('x', Cons(Var('a'), Cons(Var('b'), Empty)));('y', Cons(Var('c'), Empty));] [('x', Cons(Var('c'), Empty))] *)
+(* let test5 = envFusion [(1, Cons(Var('a'), Cons(Var('b'), Empty)));(2, Cons(Var('c'), Empty));] [(1, Cons(Var('c'), Empty))] *)
 
 (* Approximate normal forms *)
 type anf = 
@@ -357,4 +357,3 @@ let tata = inhabitation [] (
 
 
 let test = inhabitation [(1, Cons(Fleche(Cons(Var('a'), Empty), Var('a')), Empty))] (Var('a')) 2
-;;
