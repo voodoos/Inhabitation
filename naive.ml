@@ -1,7 +1,47 @@
+(* Types *)
+
 (* Simple implementation des multisets *)
 type 'a multiset =
   Empty
 | Cons of 'a * 'a multiset
+
+(* Types multisets *)
+type multisetType = sType multiset
+and sType = 
+  Var of char
+| Fleche of multisetType * sType
+
+(* Environements *)
+type environment = (int * multisetType) list
+
+(* Approximate normal forms *)
+type anf = 
+Omega
+| N of n
+and n = 
+  Lambda of int * n
+| L of l
+and l =
+  Var of int
+| App of l * anf
+
+
+(* Lambda terms with Omega *)
+type term =
+ V of int
+| Omg
+| Lamb  of int * term
+| A of term * term
+
+(* Chemins *)
+type path = 
+DeadEnd
+| End
+| Final
+| Abs of path
+| Union of path
+| Prefix of path * path
+| Head of path
 
 (* Converti un multiset en une liste (tr) *)
 let msToList ms = 
@@ -66,14 +106,6 @@ let extractMS l =
 
 
 
-(* Types *)
-type multisetType = sType multiset
-and sType = 
-  Var of char
-| Fleche of multisetType * sType
-
-type environment = (int * multisetType) list
-
 (* Liste les découpes possibles d'un environnement *)
 let rec envSplitsN n = function
   [] -> [initList n]
@@ -116,24 +148,9 @@ let rec envFusion (env0 : environment) (env1 : environment) =
 
 (* let test5 = envFusion [(1, Cons(Var('a'), Cons(Var('b'), Empty)));(2, Cons(Var('c'), Empty));] [(1, Cons(Var('c'), Empty))] *)
 
-(* Approximate normal forms *)
-type anf = 
-  TheEnd
-| Omega
-| N of n
-and n = 
-  Lambda of int * n
-| L of l
-and l =
-  Var of int
-| App of l * anf
-
-(*type anf2 = 
-  Omega
-| Lambda of *)
 
 let rec notIn x = function
-    TheEnd | Omega -> true
+    Omega -> true
   | N(n) -> niN x n
 and niN x = function
     Lambda(y, n) when y = x -> false
@@ -146,7 +163,6 @@ and niL x = function
 
 (* Alpha conversion *)
 let rec alpha x y = function
-    TheEnd -> assert false
   | Omega -> Omega
   | N(n) -> N(alphaN x y n)
 and alphaN x y = function
@@ -160,9 +176,8 @@ and alphaL x y = function
 
 let tititoto = alpha 1 2  (N(Lambda(1, L(Var(2)))))
 
-(* Max of two anf *)
+(* Max of two anf 
 let rec compAnf a b = match a, b with
-    TheEnd, _ | _, TheEnd -> assert false
   | Omega, _ -> b
   |  _, Omega -> a
   | N(na), N(nb) -> N(compNf na nb)
@@ -175,13 +190,42 @@ and compLf a b = match a, b with
   | App(la, anfa), App(lb, anfb) -> App((compLf la lb), (compAnf anfa anfb))
   | _, _ -> failwith "Arg no Least upper bound found !"
 
-
-let tototata = compAnf (N(Lambda(1, L(App(Var(2), Omega))))) (N(Lambda(3, L(App(Var(2), N(L(Var(3))))))))
-
 let rec compAnfs = function
 [] -> Omega
-  | h::tl -> compAnf (N(h)) (compAnfs tl)
+ | h::tl -> compAnf (N(h)) (compAnfs tl)*)
 
+(* Max of two anf with path info*)
+let rec compAnfCouple a b = match a, b with
+  | (Omega,_), _ -> b
+  |  _, (Omega, _) -> a
+  | (N(na),pa), (N(nb), pb) -> let r = compNfCouple (na, pa) (nb, pb) in (N(fst(r)),snd(r))
+and compNfCouple a b =  match a, b with
+    (Lambda(ca, na), pa), (Lambda(cb, nb), pb) -> let r = compNfCouple (na, pa) ((alphaN cb ca nb), pb) in
+						  (Lambda(ca, fst(r)), snd(r))
+  | (L(la), pa), (L(lb), pb) -> let r = compLfCouple (la, pa) (lb, pb) in (L(fst(r)), snd(r))
+  | _, _ -> failwith "Arg no Least upper bound found !"
+and compLfCouple a b = match a, b with
+    (Var(ca), pa), (Var(cb), pb) when ca = cb -> (Var(ca), pa)
+  | (App(la, anfa), pa), (App(lb, anfb), pb) -> let r = (compLfCouple (la, pa) (lb, pb))
+  and r2 = compAnfCouple (anfa, pa) (anfb, pb) in (App(fst(r), fst(r2)), snd(r2))
+  | _, _ -> failwith "Arg no Least upper bound found !"
+
+
+
+let rec compAnfsCouples = function
+[] -> (Omega, End)
+ | h::tl -> compAnfCouple (N(fst(h)), snd(h)) (compAnfsCouples tl)
+
+(* anf -> lambdaterms *)
+let rec toLambda = function
+Omega -> Omg
+  | N(n) -> toln n
+and toln = function
+Lambda(x, n) -> Lamb(x, toln n)
+  | L(l) -> toll l
+and toll = function
+Var(x) -> V(x)
+  |App(l, a) -> A(toll l, toLambda a)
 
 
 (* Affichage *)
@@ -207,7 +251,7 @@ let rec stringOfEnv e =
   in "["^aux e
 
 let rec anfToString  = function
-    TheEnd | Omega -> "Omega"
+    Omega -> "Omega"
   | N(n) -> nToString n
 and nToString = function
   | Lambda(x, n) -> "Lambda ("^string_of_int x^", "^nToString n^")"
@@ -247,9 +291,9 @@ let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
 
     (* On prend une variable fraiche et on appelle récursivement t *)
     if type0 = Empty then
-      List.map (fun elt -> Lambda(fresh, elt)) (t env type1 (fresh + 1))
+      List.map (fun elt -> (Lambda(fresh, fst(elt)), Abs(snd(elt))) ) (t env type1 (fresh + 1))
     else
-      List.map (fun elt -> Lambda(fresh, elt)) (t ((fresh, type0)::env) type1 (fresh + 1))
+      List.map (fun elt -> (Lambda(fresh, fst(elt)), Abs(snd(elt))) ) (t ((fresh, type0)::env) type1 (fresh + 1))
 
  (* ATTENTION Gamma, x : [] = Gamma !!!!!!
 !!!!!!!! *)
@@ -268,10 +312,13 @@ let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
 	   Cons(type1, Empty) -> type1
 	 | _ -> assert false 
 			 in
-			 h [fst(extract)] (snd(extract)) (Var(fst(fst(extract)))) type1 type0 fresh) 
+			 let res = h [fst(extract)] (snd(extract)) (Var(fst(fst(extract)))) type1 type0 fresh in
+			 (* On rajoute le path *)
+			 List.map (fun termPath -> (fst(termPath), Head(snd(termPath))) ) res
+	 ) 
 	extracts)
     
-  and h (env1 : environment) (env2 : environment) (lf : l) (type1 : sType) (type2 : sType) fresh =
+  and h (env1 : environment) (env2 : environment) (lf : l) (type1 : sType) (type2 : sType) (fresh : int) =
 
     print_string ("H : E1=" ^ (stringOfEnv env1) ^ " E2="^ (stringOfEnv env2)^ " T1=" ^ (stringOfSType type1) ^ " T2=" ^ (stringOfSType type2)^ ", LF="^lToString lf^"\n");
 
@@ -287,9 +334,9 @@ let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
   and final (type1 : sType) (type2 : sType) (lf : l) =
     print_string ("FINAL : " ^ (stringOfSType type1) ^ ", " ^ 
 		     (stringOfSType type2) ^ "--> "^(lToString lf)^"\n");
-    if type1 = type2  then [L(lf)] else []
+    if type1 = type2  then [(L(lf), Final)] else []
 
-  and prefix (env1 : environment)  (env2 : environment) (lf : l) (type1 : multisetType) (type2 : sType) (type3 : sType) fresh = 
+  and prefix (env1 : environment)  (env2 : environment) (lf : l) (type1 : multisetType) (type2 : sType) (type3 : sType) (fresh : int) = 
  
     print_string ("PREFIX : " ^ (stringOfEnv env1) ^ ", "^ (stringOfEnv env2)^ ", " ^ (stringOfMSType type1) ^ ", " ^ (stringOfSType type2) ^ ", " ^ (stringOfSType type3)^ "\n");
 
@@ -302,58 +349,55 @@ let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
         (* On appelle union, et pour chaque résultat de ti on appelle h *)
 	(* UNION *)
 	let res = union env20 type1 fresh in (*N(L(Var('m')))*)
-	if res != TheEnd then
-	h (envFusion env1 env20) env21 (App(lf, res)) type2 type3 fresh
+	if snd(res) != DeadEnd then
+	  let res2 = h (envFusion env1 env20) env21 (App(lf, fst(res))) type2 type3 fresh in
+	  (* On rajoute le path *)
+	  List.map (fun termPath -> (fst(termPath), Prefix(snd(res), snd(termPath))) ) res2
 	else []
     )
     decoupes)
 
-  and union (env0 : environment) (type0 : multisetType) fresh = 
+  and union (env0 : environment) (type0 : multisetType) (fresh : int) = 
     let i = sizeOfMS type0 in
     print_string ("UNION : " ^ (stringOfEnv env0) ^ ", " ^ (stringOfMSType type0) ^ "\n");
     
-    if i <= 0 then
+	(* On cherche toutes les partitions en i elements de l'environment *)
+    let partitions = envSplitsN i env0 in
+	(* Pour chaque melange et chaque type on tente de touver des termes qui font l'affaire: *)
+    let nList = List.concat (List.concat (List.map (fun partition -> 
+      List.map2 (fun partie type0 -> t partie type0 fresh) partition (msToList type0)) partitions)) in
+    
+    print_string "Anf trouvees: ";
+	(*printAnfList nList;*)
+    
+    print_string "\n";
+    
+    if(List.length nList > 0 || i = 0) then 
       begin
-	print_string "Type [], anf: Omega\n";
-	Omega
+	let r = compAnfsCouples nList in
+	(fst(r),Union(snd(r)))
       end
-    else
-      begin
-				(* On cherche toutes les partitions en i elements de l'environment *)
-	let partitions = envSplitsN i env0 in
-				(* Pour chaque melange et chaque type on tente de touver des termes qui font l'affaire: *)
-	let nList = List.concat (List.concat (List.map (fun partition -> 
-	  List.map2 (fun partie type0 -> t partie type0 fresh) partition (msToList type0)) partitions)) in
-	
-	print_string "Anf trouvees: ";printAnfList nList;
-	
-	print_string "\n";
-	if(List.length nList > 0) then (compAnfs nList) else TheEnd
-      end
-	
-  in t env type0 minFresh;;
+    else (Omega, DeadEnd)
+      
+  in (* On remplace les anf par de simples termes *)
+  List.map (fun couple -> (toLambda (N(fst(couple))),snd(couple))) (t env type0 minFresh)
 
-let toto = inhabitation [] (
-  Fleche(
-    Cons(
-      Fleche(Cons(Var('a'), Empty), Var('a'))
-	, Empty), 
-    Fleche(Cons(Var('a'), Empty), Var('a'))
-  )
-) 1
+let (a : sType) = Var('a')
+let (b : sType) = Var('b')
 
-let tata = inhabitation [] (
-    Fleche(
-      Cons(
-	Fleche(
-	Empty,
-        Var('a')
-	),
-	Empty
-      ),
-      Var('a')
-    )
-) 1
+let afa = Cons(Fleche(Cons(a, Empty), a),Empty)
+
+let sgl i = Cons(i, Empty)
 
 
-let test = inhabitation [(1, Cons(Fleche(Cons(Var('a'), Empty), Var('a')), Empty))] (Var('a')) 2
+let ex1 = inhabitation [] a 1
+let ex2 = inhabitation [(1, Cons(b, Empty))] a 1
+let ex3 = inhabitation [(1, Cons(a, Empty))] a 1
+let ex4 = inhabitation [] (Fleche(sgl a, a)) 1
+let ex5 = inhabitation [] (Fleche(Cons(Fleche(Empty, a),Empty), a)) 1
+let ex6 = inhabitation [] (Fleche(Cons(a,Cons(Fleche(sgl a, a), Empty)), a)) 1
+let ex7 = inhabitation [(1, Cons(Fleche(sgl a, a), Empty))] a 2
+let ex8 = inhabitation [(1, Cons(a, afa))] a 2
+let ex9 = inhabitation [(1, afa)] (Fleche(sgl a, a)) 2
+let ex11 = inhabitation [(1, afa); (2, afa); (3, sgl a)] a 4
+let ex12 = inhabitation [] (Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a))) 1
