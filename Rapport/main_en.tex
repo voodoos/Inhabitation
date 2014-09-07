@@ -8,13 +8,13 @@
 \usepackage{xcolor}
 
 %% Better maths
-\usepackage{amsmath, amssymb, amsthm, xfrac, semantic}
+\usepackage{amsmath, amssymb, amsthm, xfrac, semantic, stmaryrd}
 
 %% Code listings
 \usepackage{listings}
 \lstset{language=[Objective]Caml, captionpos=b, frame=single}
 
-\usepackage{multicol}
+\usepackage{ltxtable, multicol, geometry}
 
 % % Annexes
 \usepackage{appendix}
@@ -38,7 +38,7 @@
 \DeclareMathOperator{\isplit}{splitsN}
 
 %% Environnements maths (amsthm)
-\newtheorem{Def}{Definition}
+\newtheorem*{Def*}{Definition}
 \newtheorem{Ex}{Example}
 \newtheorem*{Ex*}{Example}
 \newtheorem*{Th*}{Theorem}
@@ -52,19 +52,19 @@
 \def\sysm{system $\mathcal{M}$}
 \def\ver{\ |\ }
 
-\newcommand{\sslash}{\mathbin{/\mkern-6mu/}}
 
 
-\title{\textbf{Inhabitation Problem in lambda calculus with non-idempotent intersection types}}
+
+\title{\textbf{OCaml implementation of an inhabitation algorithm for the lambda calculus with non-idempotent intersection types}}
 \author{Ulysse Gérard}
-\date\today
+\date{September 4, 2014}
 
 \begin{document}
 
 \maketitle
 
 \section{Introduction}
-The operation of typing is well known in \lcalc. And numerous typing systems have been imagined to give a signification to \lterms, attributing types to them. But the opposite problem exists, when we want to decide, given a type $A$ and a typing environment $\Gamma$, whether or not there exists a term $t$ such that $\Gamma \vdash t : A$ is provable. This problem is called the \emph{inhabitation problem}.
+The operation of typing is well known in \lcalc. Numerous typing systems have been imagined to give a signification to \lterms, attributing types to them. But the opposite problem exists, when we want to know, given a type $A$ and a typing environment $\Gamma$, whether or not there exists a term $t$ such that $\Gamma \vdash t : A$ is provable. This problem is called the \emph{inhabitation problem}.
 \begin{figure}
     \begin{mdframed}
         \begin{gather*}
@@ -79,10 +79,10 @@ The operation of typing is well known in \lcalc. And numerous typing systems hav
 \end{figure}
 
 
-The inhabitation problem has been studied for numerous type systems. For example, simply typed \lcalc (Fig. \ref{STY}), a type system \emph{without intersection types} has a decidable inhabitation problem. However, these types do not characterize \emph{strongly-normalizing terms}: simply typed terms are strongly-normalizing, but there exists strongly-normalizing terms which are not simply-typable ($\lambda x.xx$). That is why \emph{intersection types} have been introduced.
+The inhabitation problem has been studied for numerous type systems. For example, simply typed \lcalc\ (Fig. \ref{STY}), a type system \emph{without intersection types} has a decidable inhabitation problem \cite{Ben}. However, these types do not characterize \emph{strongly-normalizing terms}: simply-typable terms are strongly-normalizing, but there exist strongly-normalizing terms which are not simply-typable (for example $\lambda x.xx$). That is why \emph{intersection types} have been introduced.
 
-This being, types systems with \emph{idempotent intersection types} take a step toward abstraction and become undecidable. They are no more suitable to describe programming languages, but can be useful tools to understand \lcalc. For example, the system $\mathcal{D}\Omega$ (Fig. \ref{SDO}) \cite{Kriv} which characterizes solvable terms. %Th3.10 ?
-has been proved to be undecidable by Urzyczyn \cite{Urz}. And others, simplified, type systems such as the  $\mathcal{S}$ and $\mathcal{S_r}$ systems of Van Bakel \cite{VBak} also turned out to be undecidable. All of these system are based on \emph{idempotent intersection types} ($A\wedge A = A$) which also enjoy \emph{associativity} ($(A\wedge B)\wedge C = A\wedge (B\wedge C)$) and \emph{commutativity} ($A\wedge B=B\wedge A$).
+This being, types systems with \emph{idempotent intersection types} take a step toward abstraction and become undecidable. They are no more suitable to describe programming languages, but can be useful tools to understand \lcalc. For example, the system $\mathcal{D}\Omega$ (Fig. \ref{SDO}) \cite{Kriv} characterizes solvable terms, it %Th3.10 ?
+has been proved to be undecidable by Urzyczyn \cite{Urz}. And others, simplified, type systems such as the  $\mathcal{S}$ and $\mathcal{S_r}$ systems of Van Bakel \cite{VBak} also turned out to be undecidable. All of these systems are based on \emph{idempotent intersection types} ($A\wedge A = A$) which also enjoy \emph{associativity} ($(A\wedge B)\wedge C = A\wedge (B\wedge C)$) and \emph{commutativity} ($A\wedge B=B\wedge A$).
 
 \begin{figure}
     \begin{mdframed}
@@ -105,7 +105,7 @@ has been proved to be undecidable by Urzyczyn \cite{Urz}. And others, simplified
     \label{SDO}
 \end{figure}
 
-Recently, researchers from the PPS laboratory in France and the University of Turin in Italy shoved that the inhabitation problem was decidable for \emph{non-idempotent} intersection types ($A\wedge A\neq A$) by exhibiting a sound and complete algorithm (Fig. \ref{INH}, p\pageref{INH}) \cite{Kes}. They used a typing system named system $\mathcal{M}$, which is the same as system $\mathcal{R}$ of R. De Carvalho \cite{DeCarvalho}.
+Recently, researchers from the PPS laboratory in France and the University of Turin in Italy shoved that the inhabitation problem was decidable for \emph{non-idempotent} intersection types ($A\wedge A\neq A$) by exhibiting a sound and complete algorithm (Fig. \ref{INH}, p\pageref{INH}) \cite{Kes}. They used a typing system named system $\mathcal{M}$ (Fig. \ref{SM}), which is the same as system $\mathcal{R}$ of R. De Carvalho \cite{DeCarvalho}.
 
 The purpose of this work was to implement this algorithm in OCaml.
 
@@ -128,15 +128,12 @@ The purpose of this work was to implement this algorithm in OCaml.
     \label{SM}
 \end{figure}
 
-%\begin{Def}
-%    A term t is \emph{solvable} iff it exists vars $x_1,\ldots,x_k$ and terms $u_1,\ldots,u_k,v_1,\ldots,v_l$ (with $k,l\geq 0$) such that $(t[\sfrac{u_1}{x_1},\ldots,\sfrac{u_k}{x_k}])v_1\ldots v_l \simeq_\beta I$
-%\end{Def}
-
 \section {Definitions}
-The \lci\ and the non-idempotent intersection types used are:
+\label{Defs}
+The terms of the $\lambda$-calculus and the non-idempotent intersection types used are generated by the following grammars:
 \begin{align*}
 	t, u, v &::= x\ |\ \lambda x.t\ |\ tu 
-	& \sigma, \tau, \rho &::= \alpha \ | A \rightarrow \tau \\
+	& \sigma, \tau, \rho &::= \alpha \ |\ A \rightarrow \tau \\
 	&& A &::= [\sigma_i]_{i \in I}
 \end{align*}
 where $\alpha$ belongs to a countable set of base types and $I$ is a finite set of indices. Non-idempotent intersection types are therefore represented by multisets ($A\wedge B$ is $[A,B]$).
@@ -155,7 +152,11 @@ The $\beta$-reduction rule is as usual $(\lambda x.t) u ->_\beta t\{x/u\}$, defi
     \end{displaymath}
 \end{Ex*}
 
-In the type \sysm, represented in Fig. \ref{SM}, rules (Var) and ($\rightarrow$ I) are the same than in simply typed $\lambda$-calculus. The third rule is the interesting one, it implements the use of non-idempotent intersection types and allows the system to type even non-strongly normalizing terms when $I = \emptyset$, for example:
+A term is said to be in \emph{normal form} if it cannot be $\beta$-reduced. It is said to be \emph{strongly-normalizing} if every sequence of $\beta$-reductions eventually terminate to a term in normal form.
+
+
+
+In the type \sysm, represented in Fig. \ref{SM}, rules (Var) and ($\rightarrow$ I) are the same than in simply typed $\lambda$-calculus. The third rule is the interesting one, it implements the use of non-idempotent intersection types and allows the system to type even non-strongly normalizing terms when $i = 0$, for example:
 \begin{displaymath}
     \inference[($\rightarrow$ E)]{x:[[] \rightarrow \alpha] \vdash x : [] \rightarrow \alpha}{x : [[] \rightarrow \alpha] \vdash x((\lambda y.yy)(\lambda y.yy)) : \alpha}
 \end{displaymath}
@@ -170,13 +171,15 @@ And we write $\leq$ the smallest contextual order such that for all anf a, $\Ome
 \begin{Ex*}
     $\lambda x.x\Omega\Omega \leq \lambda x.x\Omega y \leq \lambda x.xzy$
 \end{Ex*}
+In the rest of this paper $\bigvee_{i\in I}a_i$ will denote the \emph{least upper bound} of the anfs $(a_i)_{i\in I}$ and $\uparrow_{i \in I}a_i$ its existence.
 
 \section{The algorithm}
-Given an environment and a type, the algorithm constructs all the approximate normal forms inhabiting this type. This is done by exploring a vast tree of possibilities in a non-deterministic way. The algorithm (Fig. \ref{INH}) is separated in three functions, $\iT$, $\iH$ and $\iTI$:
+\label{exe}
+Given an environment and a type, the algorithm constructs all the approximate normal forms inhabiting this type in this environment. This is done by exploring a vast tree of possibilities in a non-deterministic way. The algorithm (Fig. \ref{INH}) is separated in three functions, $\iT$, $\iH$ and $\iTI$:
 \begin{figure}[h]
     \begin{mdframed}
         \begin{gather*}
-            \inference[(ABS)]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\iLambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
+            \inference[(ABS)]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\lambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
             \\ \\
             \inference[(HEAD)]{a \in \iH^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
             \\ \\
@@ -191,47 +194,117 @@ Given an environment and a type, the algorithm constructs all the approximate no
   \label{INH}
 \end{figure}
 \begin{itemize}
-\item $\iT(\Gamma, \sigma)$ contains all the anf a such that there exists a derivation $\Pi \triangleright \Gamma \vdash a : \sigma$ with $a = \mathcal{A}(\Pi)$. To build this set and then stop is the purpose of the inhabitation algorithm.
-\item $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ contains all the anf b such that a us a head subterm of b, and such that $a \in \iT(\Delta, \sigma) \Rightarrow b \in \iT(\Gamma + \Delta, \tau)$.
+\item $\iT(\Gamma, \sigma)$ contains all the minimal anfs a such that there exists a derivation $\Pi \triangleright \Gamma \vdash a : \sigma$. To build this set and then stop is the purpose of the inhabitation algorithm.
+\item $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ contains all the anf b such that a is a head subterm of b, and such that $a \in \iT(\Delta, \sigma) \Rightarrow b \in \iT(\Gamma + \Delta, \tau)$.
 \item $\iTI(\Gamma, [\sigma_i]_{i \in I})$ contains all the anf $a = \bigvee_{i\in I}a_i$ such that $ \Gamma = +_{i \in I} \Gamma_i $, $ a_i \in \iT(\Gamma_i, \sigma_i)\text{ for all }i \in I $ and $\uparrow_{i \in I}a_i$
 \end{itemize}
 
+\begin{Ex*} With $\Gamma = \emptyset$ and $\sigma = [[\alpha] -> \alpha] -> [\alpha] -> \alpha$ there are two possible computations :
+\begin{displaymath}
+\makebox[\textwidth][c]{
+\inference[Abs]
+    {\inference[Abs]
+        {\inference[Head]
+            {\inference[Prefix]
+                {\inference[Union]
+                    {\inference[Head]
+                        {\inference[Final]
+                            {\alpha = \alpha}
+                            {c = y \in \iH^{y:[\alpha]}_y(\emptyset, \alpha) \triangleright \alpha}
+                        }
+                        {c \in \iT(\{y:[\alpha]\}, \alpha)}
+                    }
+                    {c \in \iTI(\{y:[\alpha]\}, [\alpha])}
+                &\inference[Final]
+                    {\alpha = \alpha}
+                    {b = xc \in \iH^{\{x:[[\alpha]->\alpha], y : [\alpha]\}}_{xc}(\emptyset, \alpha) \triangleright \alpha}
+                }
+                {b \in \iH^{x : [[\alpha] -> \alpha]}_x(\{y:[\alpha]\}, [\alpha] -> \alpha) \triangleright \alpha}
+            }
+            {b \in \iT(\{x : [[\alpha] -> \alpha], y : [\alpha]\}, \alpha)} \\\text{and } y \notin \iDom(\{x : [[\alpha] -> \alpha]\})}
+        {a = \lambda y.b \in T(\{x : [[\alpha] -> \alpha]\}, [\alpha] -> \alpha)} \\\text{and } x \notin \iDom(\emptyset)}
+    {\lambda x.a \in \iT(\emptyset, [[\alpha] -> \alpha] -> [\alpha] -> \alpha)}
+}
+\end{displaymath}
+
+which gives us $\lambda xy.xy$ and
+
+\begin{displaymath}
+\makebox[\textwidth][c]{
+\inference[Abs]
+    {\inference[Head]
+        {\inference[Final]
+            {[\alpha] -> \alpha = [\alpha] -> \alpha}
+            {a = x \in \iH^{\{x : [[\alpha] -> \alpha]\}}_x(\emptyset, [\alpha] -> \alpha) \triangleright [\alpha] -> \alpha}
+        }
+        {a \in T(\{x : [[\alpha] -> \alpha]\}, [\alpha] -> \alpha)}
+        \\\text{and } x \notin \iDom(\emptyset)
+    }
+    {\lambda x.a \in \iT(\emptyset, [[\alpha] -> \alpha] -> [\alpha] -> \alpha)}
+}
+\end{displaymath}
+which gives us $\lambda x.x$.
+\end{Ex*}
+
 \section{Implementation}
-This implementation of the inhabitation algorithm only uses basic OCaml structures. It literally follows the algorithm and builds a list of terms being given an environment and a type. The main algorithm involves different kinds of non-determinism.
+This implementation of the inhabitation algorithm only uses basic OCaml structures and is made of roughly 360 lines of code. It literally follows the algorithm and builds a list of terms being given an environment and a type. The main algorithm involves different kinds of non-determinism, and each produced term goes along with the path taken by the algorithm to find it. 
 
 The inhabitation routine in itself  is made of numerous sub-routines which reproduce the rules of the algorithm (Fig. \ref{INH}). It recursively constructs a list of the anfs found by exploring systematically all the reachable combinations of rules.
 
 \subsection{Types}
 The implementation of the inhabitation algorithm uses basic OCaml sum types with polymorphism and recursion. 
 
-\
-\begin{lstlisting}[caption={Multisets}]
-type 'a multiset =
-  Empty
-| Cons of 'a * 'a multiset
-\end{lstlisting}
+\begin{itemize}
+    \item Multisets are basically lists of elements.:
+    \begin{lstlisting} %[caption={Multisets}]
+    
+    type 'a multiset =
+      Empty
+      | Cons of 'a * 'a multiset
+    \end{lstlisting}
+    
+    \item And multiset types are defined in accordance with Fig. \ref{SM}:
+    \begin{lstlisting} %[caption={Intersection types and environments}]
+    
+    type multisetType = 
+      sType multiset
+    and sType = 
+      Var of char
+      | Fleche of multisetType * sType
+    \end{lstlisting}
+    
+    \item Environments are lists of couples:
+    \begin{lstlisting}
+    type environment = (char * multisetType) list
+    \end{lstlisting}
+    
+    \item The anf type describes approximate normal forms as defined in Part. \ref{Defs} except that variables are not characters but integers in order to make easier the use of fresh ones ($nextFresh = lastUsed + 1$):
+    \begin{lstlisting}[caption={Approximate normal forms}]
+    type anf = 
+      Omega
+      | N of n
+    and n = 
+      Lambda of char * n
+      | L of l
+    and l =
+      Var of int
+      | App of l * anf
+    \end{lstlisting}
+    
+    \item Eventually, another type is used to describe paths taken by the algorithm:
+    \begin{lstlisting}
+    type path = 
+      DeadEnd
+      | Final
+      | Abs of path
+      | Union of path
+      | Prefix of path * path
+      | Head of path
+    \end{lstlisting}
+\end{itemize}
 
-\begin{lstlisting}[caption={Intersection types and environments}]
-type multisetType = 
-  sType multiset
-and sType = 
-  Var of char
-| Fleche of multisetType * sType
 
-type environment = (char * multisetType) list
-\end{lstlisting}
 
-\begin{lstlisting}[caption={Approximate normal forms}]
-type anf = 
-  Omega
-| N of n
-and n = 
-  Lambda of char * n
-| L of l
-and l =
-  Var of char
-| App of l * anf
-\end{lstlisting}
 
 
 \subsection{The main function}
@@ -247,20 +320,20 @@ match env, type0 with
   | (_,_) -> []
 \end{lstlisting}
 
-The calculation of $\iT(\Gamma, \sigma)$ shows a first use of non-determinism. When the environment is not empty, and the type is an arrow one, then two choices are foreseeable: ABS and HEAD.  This is solved by concatenating the results of the two calculations, thus loosing tail-recursion.
+The calculation of $\iT(\Gamma, \sigma)$ shows a first use of non-determinism. When the environment is not empty, and the type is an arrow one, then two choices are foreseeable: ABS and HEAD.  This is solved by concatenating the results of the two calculations.
 
 \paragraph{Abs}
 \begin{displaymath}
     \inference[]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\iLambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
 \end{displaymath}
-This rule only does a recursive call to $\iT$, but it can happens that $A = []$. In this case, $\Gamma + (x : []) = \Gamma$, and x should not been added with empty type for convenience. 
+This rule only does a recursive call to $\iT$, but it can happen that $A = []$. In this case, $\Gamma + (x : []) = \Gamma$, and for convenience x should not been added with empty type. 
 
 \paragraph{Head}
 \begin{displaymath}
     \inference[]{a \in \iH^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
 \end{displaymath}
 
-Here appears another kind of non-determinism: the algorithm must apply the rule for each choice of a variable and a type in the environment. For example, if $\Gamma = \{(y : [\alpha \rightarrow \alpha, \alpha]), (z : [\alpha])\}$ then three choices are available for $x:[\sigma]$: $y : [\alpha -> \alpha]$, $y : [\alpha]$ and $z : [\alpha]$.
+Here appears another kind of non-determinism: the algorithm must apply the rule for each choice of a variable and a type in the environment. For example, if $\Gamma = \{(y : [\alpha \rightarrow \alpha, \alpha]), (z : [\alpha])\}$ then three choices are available for $x:[\sigma]$ which are $y : [\alpha -> \alpha]$, $y : [\alpha]$ and $z : [\alpha]$.
 
 This is done by an auxiliary function given in appendix \ref{a_extract}.
 
@@ -278,7 +351,7 @@ let rec h (env1 : environment) (env2 : environment)
     | (_, _) -> []
 \end{lstlisting}
 
-The calculation of $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ uses two rules, Final and Prefix. Once again, a choice happens between multiple path, which are systematically explored by the algorithm and whose results are concatenated. 
+The calculation of $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ uses two rules, Final and Prefix. Once again, a choice happens between multiple paths, which are systematically explored by the algorithm and whose results are concatenated. 
 
 \begin{lstlisting}[frame=single]
 val prefix : environment -> environment -> l
@@ -305,7 +378,7 @@ For example, the environment $\Gamma = \{(x : [\alpha \rightarrow \alpha, \alpha
    \\\Gamma_0 &= \emptyset &&and&& \Gamma_1 = \Gamma
 \end{align*}
 
-Furthermore, the Union rule will need an environment to be partitioned in n parts. Thus a function has been created to list all the n-partitions of a given environment (using another one which returns all the n-partitions of a multiset). It does a massive usage of List.map to iterate the split for each cases. Its complexity lie in the structure of environments which are lists of multisets which all needs to be divided. It can be found in appendix \ref{a_part}. This algorithm will be detailed in the next section (\ref{ss_ti}).
+Furthermore, the Union rule will need an environment to be partitioned in n parts. Thus a function has been created to list all the n-partitions of a given environment (using an auxiliary one which returns all the n-partitions of a multiset). It does a massive usage of \texttt{List.map} to iterate the split for each cases. Its complexity lies in the structure of environments which are lists of multisets which all needs to be divided. It can be found in appendix \ref{a_part}. This algorithm will be detailed in the next section (\ref{ss_ti}).
 
 \subsection{The $\iTI$ (Union) function}
 \label{ss_ti}
@@ -318,10 +391,10 @@ val union : env -> multisetType -> int -> anf = <fun>
     \inference[]{(a_i \in \iT(\Gamma_i, \sigma_i))_{i \in I} & \uparrow_{i \in I}a_i}{ \bigvee_{i \in I} a_i \in \iTI(+_{i \in I}\Gamma_i, [\sigma_i]_{i \in I}) }
 \end{displaymath}
 
-Union tries to find the least upper bound of the anfs generated by $\iT(\Gamma, [\sigma_i]_{i \in I})$ for each partition of $\Gamma$. Normally, the algorithm should check that such a bound exists ($\uparrow_{i \in I}a_i$), but in fact it's existence it has been proven \cite{Kes}.
+Union tries to find the least upper bound of the anfs generated by $\iT(\Gamma, [\sigma_i]_{i \in I})$ for each partition of $\Gamma$. Normally, the algorithm should check that such a bound exists ($\uparrow_{i \in I}a_i$), but in fact it's existence has been proven \cite{Kes}.
 
-To partition the environment, the same sub-routine than for Prefix is used, printed in appendix \ref{a_part}. This recursive algorithm has a very simple mechanism:
-Given a set $E$ and a integer $n$ For each element $e\in E$ it creates $n$ $n$-tuples with the $n$ distinct positions choices for $e$. Then it merges this list with the result of the same operation other the tail.
+To partition the environment, the same sub-routine than for Prefix is used, detailed in appendix \ref{a_part}. This recursive algorithm has a very simple mechanism:
+Given a set $E$ and a integer $n$ for each element $e\in E$ it creates $n$ $n$-tuples with the $n$ distinct positions choices for $e$. Then it merges this list with the result of the same operation other the tail.
 
 For example, given the set $\{a,b,c\}$ and the integer 3, the computation will be:
 \begin{align*}
@@ -334,81 +407,166 @@ For example, given the set $\{a,b,c\}$ and the integer 3, the computation will b
     \\&\ldots&
 \end{align*}
 
+Furthermore, to compute the least upper bound of a list of anfs a simple constructive algorithm is used:
+\begin{gather*}
+    \text{For all terms }t,\ \Omega \vee t = t \vee \Omega = t 
+    \\
+    \text{For all terms }t_{1..4},\ t_1t_2\vee t_3t_4 = (t_1\vee t_3)(t_2\vee t_4) \\
+    \text{For all variable $x$ and terms $t$ and $u$, } \lambda x.t \vee \lambda x.u = \lambda x.(tu)
+\end{gather*}
+The implementation of this algorithm is detailed in appendix \ref{a_anf}.
+
 \subsection{Execution examples}
-Quelques exemples détaillés d'éxecution, notamment avec Omega
+Here are some examples of inhabitation computations:
+
+
+\begin{enumerate}
+    \item $\Gamma = \emptyset$ and $\sigma = \alpha$: No results
+    \item $\Gamma = \{(x:[\beta])\}$ and $\sigma = \alpha$: No results
+    \item $\Gamma = \{(x:[\alpha])\}$ and $\sigma = \alpha$:\\
+        \qquad\texttt{Head Final} $->x$ 
+ 
+    \item $\Gamma = \emptyset$ and $\sigma = [\alpha] -> \alpha$:\\
+        \qquad \texttt{Abs (Head Final)} $->\lambda x.x$ 
+    
+    \item $\Gamma = \emptyset$ and $\sigma = [[] -> \alpha] -> \alpha$:\\
+        \qquad \texttt{Abs (Head (Prefix (Union End, Final)))}  $->\lambda x.x\Omega$
+    
+    \item $\Gamma = \emptyset$ and $\sigma = [\alpha,\ [\alpha] -> \alpha] -> \alpha$: \\
+        \qquad \texttt{Abs (Head (Prefix (Union (Head Final), Final)))}  $->\lambda x.xx$
+    
+    \item $\Gamma = \{(x:[[\alpha] -> \alpha])\}$ and $\sigma = \alpha$: No results 
+    
+    \item $\Gamma = \{(x:[\alpha,\ [\alpha] -> \alpha])\}$ and $\sigma = \alpha$: \\
+        \qquad \texttt{Head (Prefix (Union (Head Final), Final))}  $->xx$ 
+    
+    \item $\Gamma = \{(x:[[\alpha] -> \alpha])\}$ and $\sigma = [\alpha] -> \alpha$: \\
+        \qquad \texttt{Head Final} $->x$\\
+        \qquad \texttt{Abs (Head (Prefix (Union (Head Final), Final)))} $->\lambda y.xy$
+    
+    \item $\Gamma = \{(x:[[\alpha] -> \alpha]),\ (x':[[\alpha] -> \alpha]),\ y:[\alpha]\}$ and $\sigma = [\alpha]$:\\
+        \qquad \texttt{Head (Prefix (Union (Head (Prefix (Union (Head Final), Final))), Final))} $-> x(x'y)$\\
+        \qquad \texttt{Head (Prefix (Union (Head (Prefix (Union (Head Final), Final))), Final))} $-> x'(xy)$\\
+        
+    \item $\Gamma = \emptyset$ and $\sigma = [[\alpha] -> \alpha] -> [\alpha] -> \alpha$ (cf Part. \ref{exe}): \\
+        \qquad \texttt{Abs (Head Final)} $->\lambda x.x$\\
+        \qquad \texttt{Abs (Abs (Head (Prefix (Union (Head Final), Final))))} $->\lambda xy.xy$    
+\end{enumerate}
+
 \section{Termination, soundness and completeness}
-The proofs of these properties are in the original article \cite{Kes}, we will just explain some aspects of these proofs.
+It's essential to prove the termination, soundness and completeness of such an algorithm. Indeed, it would have been meaningless to try to implement it if it was not going to terminate or to give proper results. The proofs of these properties are detailed in the original article \cite{Kes}, we will just take a quick look at some aspects of these proofs.
 
 \begin{Th*}[Termination]
     The inhabitation algorithm terminates.
 \end{Th*}
 
 \begin{proof}
-    To prove the termination of the algorithm, it is necessary to show that the predicates $\iT(\Gamma, \sigma)$, $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ and $\iTI(\Gamma, [\sigma_i]_{i \in I})$ are well defined finite sets. This is proved by induction of their arguments on the following measure:
+    To prove the termination of the algorithm, it is necessary to show that the predicates $\iT(\Gamma, \sigma)$, $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ and $\iTI(\Gamma, [\sigma_i]_{i \in I})$ are well defined and finite sets. This is proved by induction of their arguments on the following measure:
     \begin{align*}
     \#(\alpha) &= 1 & \#([\sigma_i]_{i\in I}) &= \textstyle \sum_{i\in I}\#(\sigma_i) +1
     \\ \#(A -> \rho) &= \#(A) + \#(\rho) + 1 & \#(\Gamma) &= \textstyle \sum_{x\in dom(\Gamma)} \#(\Gamma(x))
+    \\\\&\#(\iT(\Gamma, \rho)) = \#(\iH_b^\Delta(\Gamma, \rho) \triangleright \tau) = \#(\Gamma) + \#(\rho)
+    \\&\#(\iTI(A -> \rho)) =  \#(\Gamma) + \#(A)
     \end{align*}
 \end{proof}
 
- To prove soundness and completeness it necessary to link runs of the algorithm with typings of approximate normal forms in \sysm:
+ To prove soundness and completeness it's necessary to link runs of the algorithm with typings of approximate normal forms in \sysm:
  \begin{Lem*}
- $a \in \iT(\Gamma, \sigma) <=> \exists\Pi\triangleright\Gamma\vdash a : \sigma \text{ such that } a = \mathcal{A}(\Pi)$
+% $a \in \iT(\Gamma, \sigma) <=> \exists\Pi\triangleright\Gamma\vdash a : \sigma \text{ such that } a = \mathcal{A}(\Pi)$
+  $a \in \iT(\Gamma, \sigma)$ iff there exists a derivation $\Pi$ proving $\Gamma |- a : \sigma$ such that $a$ is a minimal approximant of itself.
 \end{Lem*}
+\begin{proof}
+This is done by working separately on $\iT$, $\iH$ and $\iTI$, by induction on the rules of the algorithm.
+\end{proof}
 
 \begin{Th*}[Soundness]
     $a \in \iT(\Gamma, \sigma) => \forall t, (a \leq t => \Gamma \vdash t : \sigma)$
 \end{Th*}
 
+\begin{Def*}
+\begin{itemize}
+\item $\Pi \triangleright \Gamma |- t : \sigma$ denotes a derivation proving $ \Gamma |- t : \sigma$.
+\item Given $\Pi \triangleright \Gamma |- t : \sigma$, t is said to be in $\Pi$-normal form if for all typed occurrences of $t$ in $\Pi$, the subterm of $t$ at this occurrence is not a redex (a $\beta$-reducible expression).
+\end{itemize}
+
+\end{Def*}
+
 \begin{Th*}[Completeness]
     If $\Pi \triangleright \Gamma \vdash t : \sigma$ then there exists $\Pi ' \triangleright \Gamma \vdash t' : \sigma$ such that $t'$ is in \emph{$\Pi$'-normal form} and the minimal approximant of $t'$ is in $\iT(\Gamma, \sigma)$
 \end{Th*}
  
+ \begin{proof}
+ These last two theorems' proofs follow from the previous lemma.
+ \end{proof}
 
 
 \section{Conclusion}
-Just a proof of concept, some optimisations may be needed for use with complex types.
-Opening toward more complex lambda-calculus: with pair and projections, and more widely pattern calculi. (ref)
+We have presented a working implementation of a recently published inhabitation algorithm for \sysm\ which is based on non-idempotent intersection types \cite{Kes}. This algorithm produces a list of approximate normal forms populating the given type. It can start with a non-empty environment and also prints the computation sequence associated to each anf found.
 
+Yet this program is still a prototype rather than a finished and polished software. It uses very basic OCaml structures, which don't do justice to the richness and the power of this language. It also does a massive usage of non tail-recursive methods, such ad \texttt{List.map} and can probably be greatly optimized.
 
-\newpage
+Another way to improve this work could be to make this implementation compatible with more inhabitation problems. In fact the same team has worked on similar algorithms for $\lambda$-calculus with pairs and projection \cite{Kes} and more generally for pattern $\lambda$-calculus [to be published], a useful tool to study languages with native pattern-matching such as OCaml.
+%\newpage
 \bibliographystyle{plain}
 \bibliography{main.bib}
 
 \newpage
 \appendix
+\newgeometry{left=1cm,right=1cm, top=3cm, bottom=3cm}
 \section{Extracting a var from an environment}
 \label{a_extract}
 \begin{lstlisting}
-(* Given a multiset, returns a list of couples
-(var extracted, rest of the multiset) (tail-recursive) *)
+(* Given a multiset, returns a list of couples (var extracted, rest of the multiset) 
+                (tail-recursive) *)
 let extractMS l =
   let rec aux acc acc2 = function
     Empty -> acc2
-    | Cons(h, t) -> 
-  (aux (Cons(h, acc)) ((h, concat acc t)::acc2) t)
+    | Cons(h, t) -> (aux (Cons(h, acc)) ((h, concat acc t)::acc2) t)
 in aux Empty [] l
 \end{lstlisting}
 
 
 \begin{lstlisting}
-(* Returns all the extractions of a var and a type 
-from a given  environment *)
+(* Returns all the extractions of a var and a type from a given  environment *)
 let envExtracts (env : environment) = 
   let rec aux acc acc2 = function
     [] -> acc2
     | (x, types)::t -> 
         (aux ((x, types)::acc) ((List.map (fun ex -> 
-    let (e, tail) = ex in 
-    let elt = Cons(e, Empty) in 
-    match tail with
-      Empty -> ((x, elt), t@acc)
-      | _ -> 
-((x, elt), (x, tail)::t@acc)) (extractMS types))@acc2) t) 
+            let (e, tail) = ex in 
+            let elt = Cons(e, Empty) in 
+            match tail with
+              Empty -> ((x, elt), t@acc)
+              | _ -> ((x, elt), (x, tail)::t@acc)) (extractMS types))@acc2) t) 
 
   in aux [] [] env
 \end{lstlisting}
+\section{Comparing anfs}
+\label{a_anf}
+\begin{lstlisting}
+(* Max of two anf with path info*)
+let rec compAnfCouple a b = match a, b with
+  | (Omega,_), _ -> b
+  |  _, (Omega, _) -> a
+  | (N(na),pa), (N(nb), pb) -> let r = compNfCouple (na, pa) (nb, pb) in 
+                               (N(fst(r)),snd(r))
+and compNfCouple a b =  match a, b with
+    (Lambda(ca, na), pa), (Lambda(cb, nb), pb) -> 
+        let r = compNfCouple (na, pa) ((alphaN cb ca nb), pb) in
+			(Lambda(ca, fst(r)), snd(r))
+  | (L(la), pa), (L(lb), pb) -> let r = compLfCouple (la, pa) (lb, pb) in 
+                                (L(fst(r)), snd(r))
+  | _, _ -> failwith "Arg no Least upper bound found !"
+and compLfCouple a b = match a, b with
+    (Var(ca), pa), (Var(cb), pb) when ca = cb -> (Var(ca), pa)
+  | (App(la, anfa), pa), (App(lb, anfb), pb) -> let r = (compLfCouple (la, pa) (lb, pb))
+  and r2 = compAnfCouple (anfa, pa) (anfb, pb) in (App(fst(r), fst(r2)), snd(r2))
+  | _, _ -> failwith "Arg no Least upper bound found !"
 
+let rec compAnfsCouples = function
+[] -> (Omega, End)
+ | h::tl -> compAnfCouple (N(fst(h)), snd(h)) (compAnfsCouples tl)
+\end{lstlisting}
 \newpage
 \section{Partitions of an environment}
 \label {a_part}
@@ -417,8 +575,7 @@ let rec splitsN ms n =
   (* Add an element to a split in every possible way (tr) *)
   let rec add decoupe acc acc2 x = match decoupe with 
     [] -> acc2
-    | h::tl -> 
-        add tl (h::acc) ((acc@(Cons(x, h)::tl))::acc2) x
+    | h::tl ->  add tl (h::acc) ((acc@(Cons(x, h)::tl))::acc2) x
   in
    
   match ms with
@@ -428,14 +585,14 @@ let rec splitsN ms n =
          List.map (fun d ->  (add d [] [] h)) reste
        )
 \end{lstlisting}
+
 \begin{lstlisting}
 let rec envSplitsN n = function
   [] -> [initList n]
   | (x, tys)::tl -> let decoupes = splitsN tys n 
                        and reste = envSplitsN n tl in
     let decoupesX = 
-      (* Re-establishing 
-          the (x : multiset) list structure *)
+      (* Re-establishing the (x : multiset) list structure *)
       List.map (fun paquets -> 
         List.map (fun paquet -> 
             (x, paquet)
@@ -443,11 +600,9 @@ let rec envSplitsN n = function
       ) decoupes in
             
     List.concat (
-      (* Adding to the rest all the different
-          choices for each var *)
+      (* Adding to the rest all the different choices for each var *)
       List.map (fun envs -> 
-        (* For each choice of x 
-            we divide again the environments *)
+        (* For each choice of x we divide again the environments *)
         List.map (fun decoupeX -> 
           List.map2 (fun x env -> 
             x::env
@@ -459,5 +614,436 @@ let rec envSplitsN n = function
 
 \newpage
 \section{The inhabitation algorithm}
-Code définitif de l'algorithme
+\begin{lstlisting}
+(* Inhabitation algorithm *)
+let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
+  let rec t (env: environment) (type0 : sType) (fresh : int) =
+
+    match env, type0 with
+      (* ABS *)
+      ([], Fleche(type1, type2)) -> abs env fresh type1 type2
+      (* ABS + HEAD *)
+    | (_::_, Fleche(type1, type2)) -> (abs env fresh type1 type2)@(head env type0 fresh)
+      (* HEAD *)
+    | (_::_, _) -> head env type0 fresh
+    | (_,_) -> []
+
+
+  and abs (env : environment) (fresh : int) (type0 : multisetType) (type1 : sType) = 
+
+    (* Taking a fresh var and recursively calling t *)
+    if type0 = Empty then
+      List.map (fun elt -> (Lambda(fresh, fst(elt)), Abs(snd(elt))) ) 
+          (t env type1 (fresh + 1))
+    else
+      List.map (fun elt -> (Lambda(fresh, fst(elt)), Abs(snd(elt))) ) 
+          (t ((fresh, type0)::env) type1 (fresh + 1))
+
+  and head (env : environment) (type0 : sType) fresh = 
+
+    (* Searchin all extractions availible *)
+    let extracts = envExtracts env in
+
+    (* Applying Head for each extract ( ->  ((x, [type]), envTail) ) *)
+    List.concat 
+      (List.map 
+	 (fun extract -> let type1 = match (snd(fst(extract))) with
+                            	   Cons(type1, Empty) -> type1
+                            	 | _ -> assert false 
+	  in
+	    let res = h [fst(extract)] (snd(extract)) 
+	                    (Var(fst(fst(extract)))) type1 type0 fresh in
+        (* Adding the path *)
+	     List.map (fun termPath -> (fst(termPath), Head(snd(termPath))) ) res
+	 ) 
+	 extracts)
+    
+  and h (env1 : environment) (env2 : environment) (lf : l) (type1 : sType) 
+          (type2 : sType) (fresh : int) =
+    match env2, type1 with
+    (* FINAL + PREFIX *)
+      ([], Fleche(typeA, typeS)) -> (final type1 type2 lf)
+                                      @(prefix env1 env2 lf typeA typeS type2 fresh)
+    (* FINAL *)
+    | ([], type1)-> final type1 type2 lf
+    (* PREFIX *)
+    | (_, Fleche(typeA, typeS)) -> prefix env1 env2 lf typeA typeS type2 fresh
+    | (_, _) -> []
+
+  and final (type1 : sType) (type2 : sType) (lf : l) =
+    if type1 = type2  then [(L(lf), Final)] else []
+
+  and prefix (env1 : environment)  (env2 : environment) (lf : l) (type1 : multisetType)
+               (type2 : sType) (type3 : sType) (fresh : int) = 
+    let decoupes = envSplitsN 2 env2 in
+    (* For each partition, we call TI then h with the resulting terms *)
+    
+    List.concat (List.map (fun (envs : environment list) -> 
+	let env20 = (List.hd envs) and env21 = (List.hd (List.tl envs)) in
+	
+	(* UNION *)
+	let res = union env20 type1 fresh in 
+	if snd(res) != DeadEnd then
+	  let res2 = h (envFusion env1 env20) env21 (App(lf, fst(res))) type2 type3 fresh in
+	  (* Adding the path *)
+	  List.map (fun termPath -> (fst(termPath), Prefix(snd(res), snd(termPath))) ) res2
+	else []
+    )
+    decoupes)
+
+  and union (env0 : environment) (type0 : multisetType) (fresh : int) = 
+    let i = sizeOfMS type0 in
+    
+	(* Looking for all the i-partitions of the environment *)
+    let partitions = envSplitsN i env0 in
+	(* For each mix and each type we try to find terms *)
+    let nList = List.concat (List.concat (
+    List.map (fun partition -> 
+      List.map2 (fun partie type0 -> 
+          t partie type0 fresh
+      ) partition (msToList type0)
+    ) partitions)) in
+    
+    if(List.length nList > 0 || i = 0) then 
+      begin
+	let r = compAnfsCouples nList in
+	(fst(r),Union(snd(r)))
+      end
+    else (Omega, DeadEnd)
+      
+  in (* Replacing anf types by lambda-terms for easier reading *)
+  List.map (fun couple -> (toLambda (N(fst(couple))),snd(couple))) (t env type0 minFresh)
+\end{lstlisting}
+
+\newpage
+\section{The complete code}
+\begin{lstlisting}
+(* Types *)
+(* Multisets *)
+type 'a multiset =
+  Empty
+| Cons of 'a * 'a multiset
+
+(* Types multisets *)
+type multisetType = sType multiset
+and sType = 
+  Var of char
+| Fleche of multisetType * sType
+
+(* Environements *)
+type environment = (int * multisetType) list
+
+(* Approximate normal forms *)
+type anf = 
+Omega
+| N of n
+and n = 
+  Lambda of int * n
+| L of l
+and l =
+  Var of int
+| App of l * anf
+
+
+(* Lambda terms with Omega *)
+type term =
+ V of int
+| Omg
+| Lamb  of int * term
+| A of term * term
+
+(* Paths *)
+type path = 
+DeadEnd
+| End
+| Final
+| Abs of path
+| Union of path
+| Prefix of path * path
+| Head of path
+
+(* Multiset to list (tr) *)
+let msToList ms = 
+  let rec aux acc = function
+    Empty -> acc
+  | Cons(x, ms) -> aux (acc@[x]) ms
+  
+  in aux [] ms
+
+(* Create a list of n empty lists (tr) *)
+let initList n = 
+  let rec aux acc = function
+      0 -> acc
+    | m -> aux ([]::acc) (m-1)
+
+  in aux [] n
+
+(* Create a list of n empty multisets (tr) *)
+let initMS n = 
+  let rec aux acc = function
+      0 -> acc
+    | m -> aux (Empty::acc) (m-1)
+
+  in aux [] n
+
+(* GIve the size of a multiset (tr) *)
+let sizeOfMS ms = 
+  let rec aux acc =  function
+    Empty -> acc
+  | Cons(_, tl) -> aux (acc+1) tl
+
+  in aux 0 ms
+
+(* Concatenation of two multiset (tr) *)
+let rec concat m1 m2 = match m1 with
+    Empty -> m2
+  | Cons(h, t) -> concat t (Cons(h, m2))
+
+(* Partitions of a multiset *)
+let rec splitsN ms n = 
+   (* Add in every way possible an element to a split (tr) *)
+   let rec add decoupe acc acc2 x = match decoupe with 
+       [] -> acc2
+     | h::tl -> add tl (h::acc) ((acc@(Cons(x, h)::tl))::acc2) x in
+
+  match ms with
+    Empty -> [initMS n] (* [[ [];[];[];...;[] ]] *)
+  | Cons(h, tl) -> let reste = (splitsN tl n) in
+	     List.concat (List.map (fun d -> (add d [] [] h)) reste)
+
+(* List the possible extractions from a multiset (tr) *)
+let extractMS l =
+  let rec aux acc acc2 = function
+  Empty -> acc2
+  | Cons(h, t) -> (aux (Cons(h, acc)) ((h, concat acc t)::acc2) t) in
+  aux Empty [] l
+
+(* List the possible partitions of an environment *)
+let rec envSplitsN n = function
+  [] -> [initList n]
+  | (x, tys)::tl -> let decoupes = splitsN tys n 
+                       and reste = envSplitsN n tl in
+    let decoupesX = 
+      (* Re-establishing the (x : multiset) list structure *)
+      List.map (fun paquets -> 
+        List.map (fun paquet -> 
+            (x, paquet)
+        ) paquets
+      ) decoupes in
+            
+    List.concat (
+      (* Adding to the rest all the different choices for each var *)
+      List.map (fun envs -> 
+        (* For each choice of x we divide again the environments *)
+        List.map (fun decoupeX -> 
+          List.map2 (fun x env -> 
+            x::env
+          ) decoupeX envs
+        ) decoupesX
+      ) reste
+    )
+
+(* List the possible extractions of couples var /type from an env (tr) *)
+let envExtracts (env : environment) = 
+  let rec aux acc acc2 = function
+    [] -> acc2
+  | (x, types)::t -> (aux ((x, types)::acc) ((List.map (fun ex -> let (e, tail) = ex in 
+		let elt = Cons(e, Empty) in 
+		 match tail with
+		   Empty -> ((x, elt), t@acc)
+		 | _ -> ((x, elt), (x, tail)::t@acc)) (extractMS types))@ acc2) t) in
+  aux [] [] env
+
+(* Merge two environments (tr) *)
+let rec envFusion (env0 : environment) (env1 : environment) = 
+  let rec aux elt acc = function 
+      [] -> elt::acc
+    | (x, type0)::tl when x = fst(elt) -> acc@((x, concat type0 (snd(elt)))::tl)
+    | h::tl -> aux elt (h::acc) tl
+
+  in match env0 with
+    [] -> env1
+  | h::t -> envFusion t (aux h [] env1)
+
+
+(* Look for a variable in an anf *)
+let rec notIn x = function
+    Omega -> true
+  | N(n) -> niN x n
+and niN x = function
+    Lambda(y, n) when y = x -> false
+  | Lambda(_, n) -> niN x n
+  | L(l) -> niL x l
+and niL x = function
+    Var(y) when x = y -> false
+  | Var(_) -> true
+  | App(l, a) -> (niL x l)&&(notIn x a)
+
+(* Alpha conversion *)
+let rec alpha x y = function
+  | Omega -> Omega
+  | N(n) -> N(alphaN x y n)
+and alphaN x y = function
+    Lambda(c, n) when c = x && niN y n-> Lambda(y, alphaN x y n)
+  | Lambda(c, n) -> Lambda(c, alphaN x y n)
+  | L(l) -> L(alphaL x y l)
+and alphaL x y = function
+    Var(z) when z = x -> Var(y)
+  | Var(z) -> Var(z)
+  | App(l, a) -> App(alphaL x y l, alpha x y a)
+
+(* Max of two anf with path info*)
+let rec compAnfCouple a b = match a, b with
+  | (Omega,_), _ -> b
+  |  _, (Omega, _) -> a
+  | (N(na),pa), (N(nb), pb) -> let r = compNfCouple (na, pa) (nb, pb) in (N(fst(r)),snd(r))
+and compNfCouple a b =  match a, b with
+    (Lambda(ca, na), pa), (Lambda(cb, nb), pb) -> 
+        let r = compNfCouple (na, pa) ((alphaN cb ca nb), pb) in
+						  (Lambda(ca, fst(r)), snd(r))
+  | (L(la), pa), (L(lb), pb) -> let r = compLfCouple (la, pa) (lb, pb) in (L(fst(r)), snd(r))
+  | _, _ -> failwith "Arg no Least upper bound found !"
+and compLfCouple a b = match a, b with
+    (Var(ca), pa), (Var(cb), pb) when ca = cb -> (Var(ca), pa)
+  | (App(la, anfa), pa), (App(lb, anfb), pb) -> let r = (compLfCouple (la, pa) (lb, pb))
+  and r2 = compAnfCouple (anfa, pa) (anfb, pb) in (App(fst(r), fst(r2)), snd(r2))
+  | _, _ -> failwith "Arg no Least upper bound found !"
+
+let rec compAnfsCouples = function
+[] -> (Omega, End)
+ | h::tl -> compAnfCouple (N(fst(h)), snd(h)) (compAnfsCouples tl)
+
+(* anf -> lambdaterms *)
+let rec toLambda = function
+Omega -> Omg
+  | N(n) -> toln n
+and toln = function
+Lambda(x, n) -> Lamb(x, toln n)
+  | L(l) -> toll l
+and toll = function
+Var(x) -> V(x)
+  |App(l, a) -> A(toll l, toLambda a)
+
+
+(* Inhabitation algorithm *)
+let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
+  let rec t (env: environment) (type0 : sType) (fresh : int) =
+
+    match env, type0 with
+      (* ABS *)
+      ([], Fleche(type1, type2)) -> abs env fresh type1 type2
+      (* ABS + HEAD *)
+    | (_::_, Fleche(type1, type2)) -> (abs env fresh type1 type2)@(head env type0 fresh)
+      (* HEAD *)
+    | (_::_, _) -> head env type0 fresh
+    | (_,_) -> []
+
+
+  and abs (env : environment) (fresh : int) (type0 : multisetType) (type1 : sType) = 
+
+    (* Taking a fresh var and recursively calling t *)
+    if type0 = Empty then
+      List.map (fun elt -> (Lambda(fresh, fst(elt)), Abs(snd(elt))) ) 
+          (t env type1 (fresh + 1))
+    else
+      List.map (fun elt -> (Lambda(fresh, fst(elt)), Abs(snd(elt))) ) 
+          (t ((fresh, type0)::env) type1 (fresh + 1))
+
+  and head (env : environment) (type0 : sType) fresh = 
+
+    (* Searchin all extractions availible *)
+    let extracts = envExtracts env in
+
+    (* Applying Head for each extract ( ->  ((x, [type]), envTail) ) *)
+    List.concat 
+      (List.map 
+	 (fun extract -> let type1 = match (snd(fst(extract))) with
+                            	   Cons(type1, Empty) -> type1
+                            	 | _ -> assert false 
+	  in
+	    let res = h [fst(extract)] (snd(extract)) 
+	                    (Var(fst(fst(extract)))) type1 type0 fresh in
+        (* Adding the path *)
+	     List.map (fun termPath -> (fst(termPath), Head(snd(termPath))) ) res
+	 ) 
+	 extracts)
+    
+  and h (env1 : environment) (env2 : environment) (lf : l) (type1 : sType) 
+          (type2 : sType) (fresh : int) =
+    match env2, type1 with
+    (* FINAL + PREFIX *)
+      ([], Fleche(typeA, typeS)) -> (final type1 type2 lf)
+                                      @(prefix env1 env2 lf typeA typeS type2 fresh)
+    (* FINAL *)
+    | ([], type1)-> final type1 type2 lf
+    (* PREFIX *)
+    | (_, Fleche(typeA, typeS)) -> prefix env1 env2 lf typeA typeS type2 fresh
+    | (_, _) -> []
+
+  and final (type1 : sType) (type2 : sType) (lf : l) =
+    if type1 = type2  then [(L(lf), Final)] else []
+
+  and prefix (env1 : environment)  (env2 : environment) (lf : l) (type1 : multisetType)
+               (type2 : sType) (type3 : sType) (fresh : int) = 
+    let decoupes = envSplitsN 2 env2 in
+    (* For each partition, we call TI then h with the resulting terms *)
+    
+    List.concat (List.map (fun (envs : environment list) -> 
+	let env20 = (List.hd envs) and env21 = (List.hd (List.tl envs)) in
+	
+	(* UNION *)
+	let res = union env20 type1 fresh in 
+	if snd(res) != DeadEnd then
+	  let res2 = h (envFusion env1 env20) env21 (App(lf, fst(res))) type2 type3 fresh in
+	  (* Adding the path *)
+	  List.map (fun termPath -> (fst(termPath), Prefix(snd(res), snd(termPath))) ) res2
+	else []
+    )
+    decoupes)
+
+  and union (env0 : environment) (type0 : multisetType) (fresh : int) = 
+    let i = sizeOfMS type0 in
+    
+	(* Looking for all the i-partitions of the environment *)
+    let partitions = envSplitsN i env0 in
+	(* For each mix and each type we try to find terms *)
+    let nList = List.concat (List.concat (
+    List.map (fun partition -> 
+      List.map2 (fun partie type0 -> 
+          t partie type0 fresh
+      ) partition (msToList type0)
+    ) partitions)) in
+    
+    if(List.length nList > 0 || i = 0) then 
+      begin
+	let r = compAnfsCouples nList in
+	(fst(r),Union(snd(r)))
+      end
+    else (Omega, DeadEnd)
+      
+  in (* Replacing anf types by lambda-terms for easier reading *)
+  List.map (fun couple -> (toLambda (N(fst(couple))),snd(couple))) (t env type0 minFresh)
+  
+(* Examples *)
+let (a : sType) = Var('a')
+let (b : sType) = Var('b')
+
+let afa = Cons(Fleche(Cons(a, Empty), a),Empty)
+
+let sgl i = Cons(i, Empty)
+
+
+let ex1 = inhabitation [] a 1
+let ex2 = inhabitation [(1, Cons(b, Empty))] a 1
+let ex3 = inhabitation [(1, Cons(a, Empty))] a 1
+let ex4 = inhabitation [] (Fleche(sgl a, a)) 1
+let ex5 = inhabitation [] (Fleche(Cons(Fleche(Empty, a),Empty), a)) 1
+let ex6 = inhabitation [] (Fleche(Cons(a,Cons(Fleche(sgl a, a), Empty)), a)) 1
+let ex7 = inhabitation [(1, Cons(Fleche(sgl a, a), Empty))] a 2
+let ex8 = inhabitation [(1, Cons(a, afa))] a 2
+let ex9 = inhabitation [(1, afa)] (Fleche(sgl a, a)) 2
+let ex11 = inhabitation [(1, afa); (2, afa); (3, sgl a)] a 4
+let ex12 = inhabitation [] 
+            (Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a))) 1
+\end{lstlisting}
 \end{document}

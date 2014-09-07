@@ -9,37 +9,394 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 
+\usepackage{semantic}
 
-\title{Implémentation  d'un algorithme d'inhabitation en OCaml}
+\usepackage{listings, multicol}
+\lstset{language=[Objective]Caml, captionpos=b, frame=single}
+
+\newcommand\heading[1]{%
+  \par\bigskip
+  {\Large\bfseries#1}\par\smallskip}
+
+\newcommand{\sslash}{\mathbin{/\mkern-6mu/}}
+
+%% Hack for minus signs in listings....
+\mathchardef\hyphenmathcode=\mathcode`\-
+\let\origlstlisting=\lstlisting
+\let\endoriglstlisting=\endlstlisting
+\renewenvironment{lstlisting}
+{\mathcode`\-=\hyphenmathcode
+    \everymath{}\mathsurround=0pt\origlstlisting}
+{\endoriglstlisting}
+
+%% Déclaration des fonctions mathématiques
+\DeclareMathOperator{\iT}{T}
+\DeclareMathOperator{\iH}{H}
+\DeclareMathOperator{\iTI}{TI}
+\DeclareMathOperator{\iDom}{dom}
+\DeclareMathOperator{\iLambda}{\lambda}
+\DeclareMathOperator{\ienvSPlit}{envSplitsN}
+\DeclareMathOperator{\isplit}{splitsN}
+
+\title{Implémentation  d'un algorithme d'\emph{inhabitation} en OCaml}
+\subtitle{Compte rendu de TRE}
 \author{Ulysse Gérard}
-\institute{Université Denis Diderot, Paris 7}
+\institute{Université Denis Diderot, Paris 7\\TRE encadré par Delia Kesner (PPS)}
 \date{9 septembre 2014}
 
 \begin{document}
+
     
     \begin{frame}
         \titlepage
     \end{frame}
     
-    \begin{frame}
-        \frametitle{Sommaire}
+    \begin{frame}{Sommaire}
         \tableofcontents
     \end{frame}
     
     \section{Introduction}
-    \begin{frame}
+    \begin{frame}{Introduction}
+        \heading{Le $\lambda$-calcul}
+        Un système formel, Turing-complet, programmation fonctionnelle
+        \begin{block}{Le problème d'\emph{inhabitation}}
+        Il s'agit de répondre a la question de l'existence, pour un type $\tau$ et un environnent de typage $\Gamma$ donnés, d'un terme $t$ tel que $\Gamma\vdash t:\tau$
+        \end{block}
+        \heading{Types simples}
+        \begin{itemize}
+            \item Le problème de l'\emph{inhabitation} est décidable \cite{Ben}
+            \item $t$ typable $\Rightarrow$ $t$ fortement normalisable (ie: toutes les réductions à partir de $t$ sont finies ($(\lambda x.xx)(\lambda x.xx))$)
+            \item $t$ typable $\nLeftarrow$ $t$ fortement normalisable ($\lambda x.xx$)
+        \end{itemize}
     \end{frame}
+        
+    \begin{frame}{Introduction}
+    \heading{Types intersection}
+    \begin{itemize}
+    \item Assigner des types multiples à un même terme
+    \item Caractérisation possible de la forte normalisation avec notamment le système $\mathcal{D}\Omega$ \cite{coppo}
+        \begin{itemize}
+        \item Utilise types intersection \emph{associatifs} ($(A\wedge B)\wedge C = A\wedge (B\wedge C)$), \emph{commutatifs} ($A\wedge B=B\wedge A$) et \emph{idempotents} ($A\wedge A = A$)
+        \item Prouvé indécidable (Urzyczyn \cite{Urz})
+        \end{itemize}
+    
+    
+    \item Vaincre l'indécidabilité: types intersection \emph{non-idempotents} ($A\wedge A \neq A$)
+    \end{itemize}
+    \end{frame}
+    
+    \begin{frame}
+    \heading{Types intersection non-idempotents}
+    \begin{itemize}
+        \item Travaux récents de chercheurs du PPS et de l'université de Turin.
+        \item Un autre système de types, le système $\mathcal{M}$
+        \item Ils ont construit un algorithme d'\emph{inhabitation} complet, correct et qui termine, prouvant ainsi la décidabilité du problème.
+        \item Objectif de ce TRE: implémenter cet algorithme en OCaml
+    \end{itemize}
+    \end{frame}
+    
     
     \section{Présentation du formalisme et de l'algorithme}
-    \begin{frame}
-        \begin{block}{Answered Questions}
-            How many primes are there?
+    \begin{frame}{Formalisme}
+        \begin{block}{Le $\lambda$-calcul}
+        \vspace{-.3cm}
+           \begin{equation*}
+           t, u, v ::= x\ |\ \lambda x.t\ |\ tu 
+           \end{equation*}	
         \end{block}
+        
+        \begin{definition}[$\alpha$-conversion]
+            Tous les termes du $\lambda$-calcul sont définis \emph{modulo $\alpha$-conversion}, c'est à dire que l'on peut toujours remplacer une variable liée par une autre non-encore utilisée.
+            
+            \begin{equation*}
+            \text{Ainsi: } \lambda x.t =_\alpha \lambda y.t[x\sslash y] \text{ for $y$ fresh}
+            \end{equation*}
+        \end{definition}
+        \begin{definition}[$\beta$-réduction]
+            \vspace{-.3cm}
+            \begin{equation*}
+              (\lambda x.t) u ->_\beta t\{x/u\} \qquad\text{ (Ex: $(\lambda x.tx)u \rightarrow_\beta tu$)}
+            \end{equation*}
+        \end{definition}
     \end{frame}
-    
-    \section{De l'algorithme mathématique à OCaml}
+
     \begin{frame}
+    \begin{block}{System $\mathcal{M}$}
+        \begin{gather*}
+                \inference[(Var)]{}{x : [\rho] \vdash x : \rho}
+                \qquad
+                \inference[($\rightarrow$ I)]{\Gamma, x : A \vdash t : \rho}{\Gamma \backslash x \vdash \lambda x.t : A \rightarrow \rho}
+                \\ \\
+                \inference[($\rightarrow$ E)]{\Gamma_0 \vdash t : [\sigma_1, \ldots \sigma_i] \rightarrow \rho 
+                    & \Gamma_1 \vdash u : \sigma_1, \ldots \Gamma_i \vdash u : \sigma_i}
+                {\Gamma_0 + \Gamma_1 + \cdots + \Gamma_i \vdash tu : \rho}
+                \\ \\
+                \text{For types } \sigma, \tau, \rho ::= \alpha \ | \ A \rightarrow \tau \qquad A ::= [\sigma_i]_{i \in I}
+                \\ \text{And where for all } x \in \text{domain}(\Gamma_0)\cup\text{domain}(\Gamma_1) ,
+                 \\  (\Gamma_0 + \Gamma_1)(x) = \Gamma_0(x) \uplus\Gamma_1(x) 
+        \end{gather*}
+    \end{block}
     \end{frame}
     
+    \begin{frame}{Système $\mathcal{M}$}
+    \begin{itemize}
+    \item Ce système est dit "relevant": la règle \texttt{(var)} ne s'applique qu'avec un environnement minimal
+    \item Peux typer des termes non fortement normalisables:
+        \begin{displaymath}
+            \inference[($\rightarrow$ E)]{x:[[] \rightarrow \alpha] \vdash x : [] \rightarrow \alpha}{x : [[] \rightarrow \alpha] \vdash x((\lambda y.yy)(\lambda y.yy)) : \alpha}
+        \end{displaymath}
+    \item Pour représenter ces sous-termes non-typables on utilise des formes normales approximées (anf):
+    \begin{align*}
+        a,b,c ::= \Omega\ |\ \mathcal{N} 
+        && \mathcal{N} ::= \lambda x.\mathcal{N}\ |\ \mathcal{L}
+        && \mathcal{L} ::= x\ |\ \mathcal{L}a
+    \end{align*}
+            Ordre sur les anf: $\lambda x.x\Omega\Omega \leq \lambda x.x\Omega y \leq \lambda x.xzy$
+    \end{itemize}
+    \end{frame}
+    
+    \begin{frame}{L'algorithme}
+    
+    \begin{itemize}
+    \item $\iT(\Gamma, \sigma)$ contient toutes les anf $a$ telles qu'il existe une dérivation $\Pi \triangleright \Gamma \vdash a : \sigma$ pour laquelle $a$ est minimale. 
+    \item $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ contient toutes les anf $b$ telles que $a$ soit un sous-terme de $b$, et tel que  $a \in \iT(\Delta, \sigma) \Rightarrow b \in \iT(\Gamma + \Delta, \tau)$.
+    \item $\iTI(\Gamma, [\sigma_i]_{i \in I})$ contient toutes les anf $a = \bigvee_{i\in I}a_i$ telles que  $ \Gamma = +_{i \in I} \Gamma_i $, $ a_i \in \iT(\Gamma_i, \sigma_i)\text{ pour tout }i \in I $ et $\uparrow_{i \in I}a_i$
+    \end{itemize}
+    \end{frame}
+    
+    \begin{frame}{L'algorithme}
+        \begin{gather*}
+        \inference[(ABS)]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\lambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
+        \\ \\
+        \inference[(HEAD)]{a \in \iH^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
+        \\ \\
+        \inference[(PREFIX)]{\Gamma = \Gamma_0 + \Gamma_1 & b \in \iTI(\Gamma_0, A) & a \in \iH^{\Delta + \Gamma_0}_{cb}(\Gamma_1, \sigma) \triangleright \tau}{a \in \iH^{\Delta}_c(\Gamma, A \rightarrow \sigma) \triangleright \tau}
+        \\ \\
+        \inference[(FINAL)]{\sigma = \tau}{a \in \iH^{\Delta}_a(\emptyset, \sigma) \triangleright \tau}
+        \qquad
+        \inference[(UNION)]{(a_i \in \iT(\Gamma_i, \sigma_i))_{i \in I} & \uparrow_{i \in I}a_i}{\displaystyle \bigvee_{i \in I} a_i \in \iTI(+_{i \in I}\Gamma_i, [\sigma_i]_{i \in I}) }
+        \end{gather*}
+    \end{frame}
+    
+    \begin{frame}
+        \begin{displaymath}
+        \makebox[\textwidth][c]{
+            \inference[Abs]
+            {\inference[Abs]
+                {\inference[Head]
+                    {\inference[Prefix]
+                        {\inference[Union]
+                            {\inference[Head]
+                                {\inference[Final]
+                                    {\alpha = \alpha}
+                                    {y \in \iH^{y:[\alpha]}_y(\emptyset, \alpha) \triangleright \alpha}
+                                }
+                                {y \in \iT(\{y:[\alpha]\}, \alpha)}
+                            }
+                            {y \in \iTI(\{y:[\alpha]\}, [\alpha])}
+                            \inference[Final]
+                            {\alpha = \alpha}
+                            {xy \in \iH^{\{x:[[\alpha]->\alpha], y : [\alpha]\}}_{xc}(\emptyset, \alpha) \triangleright \alpha}
+                        }
+                        {xy \in \iH^{x : [[\alpha] -> \alpha]}_x(\{y:[\alpha]\}, [\alpha] -> \alpha) \triangleright \alpha}
+                    }
+                    {xy \in \iT(\{x : [[\alpha] -> \alpha], y : [\alpha]\}, \alpha)} \\\text{and } y \notin \iDom(\{x : [[\alpha] -> \alpha]\})}
+                {\lambda y.xy \in T(\{x : [[\alpha] -> \alpha]\}, [\alpha] -> \alpha)} \\\text{and } x \notin \iDom(\emptyset)}
+            {\lambda x.\lambda y.xy \in \iT(\emptyset, [[\alpha] -> \alpha] -> [\alpha] -> \alpha)}
+        }
+        \end{displaymath}
+    \end{frame}
+    
+    
+    \section{Implémentation en OCaml}
+    \begin{frame}[containsverbatim]{Implémentation}
+        \begin{itemize}
+            \item Un algorithme fortement non-déterministe
+            \item Très adapté à la programmation récursive
+        \end{itemize}
+        
+        \begin{multicols}{2}
+        \begin{lstlisting}
+type 'a multiset =
+ Empty
+|Cons of 'a*'a multiset
+        \end{lstlisting}
+\begin{lstlisting} %[caption={Intersection types and environments}]
+
+type multisetType = 
+ sType multiset 
+and sType = 
+ Var of char
+|Fleche of multisetType
+            * sType
+\end{lstlisting}
+
+        \vfill
+        \columnbreak
+        \begin{lstlisting}
+type anf = 
+    Omega
+  | N of n
+and n = 
+    Lambda of char * n
+  | L of l
+and l =
+    Var of int
+  | App of l * anf
+            \end{lstlisting}
+            
+        \end{multicols}
+\begin{lstlisting}
+type environment = (char * multisetType) list
+\end{lstlisting}
+    \end{frame}
+    
+    \begin{frame}[containsverbatim]
+    \heading{La fonction principale, $\iT$}
+    \begin{lstlisting}
+let rec t env type0 fresh =
+  match env, type0 with
+      ([], Fleche(type1, type2)) -> ABS
+    | (_, Fleche(type1, type2)) -> ABS@HEAD
+    | (_::_, _) -> HEAD
+  | (_,_) -> []
+    \end{lstlisting}
+    
+    \begin{multicols}{2}
+    \heading{Abs}
+    \columnbreak
+    \heading{Head}
+    \end{multicols}
+    \begin{multicols}{2}
+    \small
+    \begin{displaymath}
+        \inference[]{a \in \iT(\Gamma + (x : A), \tau) & x \notin \iDom(\Gamma)}{\iLambda x.a \in \iT(\Gamma, A \rightarrow \tau)}
+    \end{displaymath}
+    \vfill
+    \columnbreak
+    \begin{displaymath}
+        \inference[]{a \in \iH^{x:[\sigma]}_x(\Gamma, \sigma) \triangleright \tau}{a \in\iT(\Gamma + (x:[\sigma]), \tau) }
+    \end{displaymath}
+        \end{multicols}
+        \normalsize
+    \end{frame}
+    
+    
+    \begin{frame}[containsverbatim]
+        \heading{La fonction $\iH$}
+        \begin{lstlisting}
+let rec h env1 env2 lf type1 type2 fresh =
+  match env2, type1 with
+    ([], Fleche(typeA, typeS)) -> FINAL@PREFIX
+    | ([], type1) -> FINAL
+    | (_, Fleche(typeA, typeS)) -> PREFIX
+    | (_, _) -> []
+        \end{lstlisting}
+        \heading{Prefix}
+        \begin{displaymath}
+        \inference[]{\Gamma = \Gamma_0 + \Gamma_1 & b \in \iTI(\Gamma_0, A) & a \in \iH^{\Delta + \Gamma_0}_{cb}(\Gamma_1, \sigma) \triangleright \tau}{a \in \iH^{\Delta}_c(\Gamma, A \rightarrow \sigma) \triangleright \tau}
+        \end{displaymath}
+        
+        \heading{Final}
+        \begin{displaymath}
+        \inference[(FINAL)]{\sigma = \tau}{a \in \iH^{\Delta}_a(\emptyset, \sigma) \triangleright \tau}
+        \end{displaymath}
+    \end{frame}
+    
+    \begin{frame}
+            \heading{Partitions d'un environnement}
+            Exemple de découpe en deux de  $\Gamma = \{(x : [\alpha \rightarrow \alpha, \alpha]), (y : [\alpha])\}$:
+            \begin{align*}
+               \Gamma_0 &= \Gamma &&and&& \Gamma_1 = \emptyset
+               \\\Gamma_0 &= \{(x:[\alpha]), (y:[\alpha])\} &&and&& \Gamma_1 = \{(x:[\alpha -> \alpha])\}
+               \\\Gamma_0 &= \{(y:[\alpha])\} &&and&& \Gamma_1 = \{(x : [\alpha \rightarrow \alpha, \alpha])\}
+               \\\Gamma_0 &= \{(x : [\alpha \rightarrow \alpha, \alpha])\} &&and&& \Gamma_1 = \{(y:[\alpha])\}
+               \\&&&\vdots&&
+               \\\Gamma_0 &= \emptyset &&and&& \Gamma_1 = \Gamma
+            \end{align*}
+            
+            Illustration d'un découpage en 3 de $\{a,b,c\}$:
+            \begin{align*}
+                &\ [\ []\ ,\ []\ ,\ []\ ]\ &
+                \\&\ [\ [\ [c]\ ,\ []\ ,\ []\ ]\ ,\ [\ []\ ,\ [c]\ ,\ []\ ]\ ,\ [\ []\ ,\ []\ ,\ [c]\ ]\ ]\ &
+                \\&\ [\ [\ [cb]\ ,\ []\ ,\ []\ ]\ ,\ [\ [c]\ ,\ [b]\ ,\ []\ ]\ ,\ [\ [c]\ ,\ []\ ,\ [b]\ ]\ ,
+                \ [\ [b]\ ,\ [c]\ ,\ []\ ]\ ,&
+                \\&\ \ \ [\ []\ ,\ [cb]\ ,\ []\ ]\ ,\ [\ []\ ,\ [c]\ ,\ [b]\ ]\ ,
+                \ [\ [b]\ ,\ []\ ,\ [c]\ ]\ ,\ [\ []\ ,\ [b]\ ,\ [c]\ ]\ ,\ [\ []\ ,\ []\ ,\ [cb]\ ]\  ]&
+                \\&\ldots&
+            \end{align*}
+    \end{frame}
+    
+    \begin{frame}[containsverbatim]
+    \heading{La fonction $\iTI$}
+    \begin{lstlisting}
+ val union: env -> multisetType -> int -> anf
+    \end{lstlisting}
+    
+    \begin{displaymath}
+        \inference[]{(a_i \in \iT(\Gamma_i, \sigma_i))_{i \in I} & \uparrow_{i \in I}a_i}{ \bigvee_{i \in I} a_i \in \iTI(+_{i \in I}\Gamma_i, [\sigma_i]_{i \in I}) }
+    \end{displaymath}
+    
+    \heading{Calcul de la least-upper-bound}
+    \begin{gather*}
+        \text{For all terms }t,\ \Omega \vee t = t \vee \Omega = t 
+        \\
+        \text{For all terms }t_{1..4},\ t_1t_2\vee t_3t_4 = (t_1\vee t_3)(t_2\vee t_4) \\
+        \text{For all variable $x$ and terms $t$ and $u$, } \lambda x.t \vee \lambda x.u = \lambda x.(tu)
+    \end{gather*}
+    
+    \end{frame}
+    
+    \begin{frame}[Exemples d'exécution]
+   
+   \begin{enumerate}
+%       \item $\Gamma = \emptyset$ and $\sigma = \alpha$: No results
+       \item $\Gamma = \{(x:[\beta])\}$ and $\sigma = \alpha$: No results
+       \item $\Gamma = \{(x:[\alpha])\}$ and $\sigma = \alpha$:
+           \qquad\texttt{Head Final} $->x$ 
+    
+       \item $\Gamma = \emptyset$ and $\sigma = [\alpha] -> \alpha$:
+           \qquad \texttt{Abs (Head Final)} $->\lambda x.x$ 
+       
+              \item $\Gamma = \emptyset$ and $\sigma = [\alpha,\ [\alpha] -> \alpha] -> \alpha$: \\
+                   \texttt{Abs (Head (Prefix (Union (Head Final), Final)))}  $->\lambda x.xx$
+                  
+       \item $\Gamma = \emptyset$ and $\sigma = [[] -> \alpha] -> \alpha$:\\
+           \qquad \texttt{Abs (Head (Prefix (Union End, Final)))}  $->\lambda x.x\Omega$
+       
+       
+%       \item $\Gamma = \{(x:[[\alpha] -> \alpha])\}$ and $\sigma = \alpha$: No results 
+       
+%       \item $\Gamma = \{(x:[\alpha,\ [\alpha] -> \alpha])\}$ and $\sigma = \alpha$: \\
+%           \qquad \texttt{Head (Prefix (Union (Head Final), Final))}  $->xx$ 
+       
+       \item $\Gamma = \{(x:[[\alpha] -> \alpha])\}$ and $\sigma = [\alpha] -> \alpha$: \\
+           \qquad \texttt{Head Final} $->x$\\
+            \texttt{Abs (Head (Prefix (Union (Head Final), Final)))} $->\lambda y.xy$
+       
+%%       \item $\Gamma = \{(x:[[\alpha] -> \alpha]),\ (x':[[\alpha] -> \alpha]),\ y:[\alpha]\}$ and $\sigma = [\alpha]$:\\
+%           \qquad \texttt{Head (Prefix (Union (Head (Prefix (Union (Head Final), Final))), Final))} $-> x(x'y)$\\
+%           \qquad \texttt{Head (Prefix (Union (Head (Prefix (Union (Head Final), Final))), Final))} $-> x'(xy)$\\
+           
+       \item $\Gamma = \emptyset$ and $\sigma = [[\alpha] -> \alpha] -> [\alpha] -> \alpha$ : \\
+           \qquad \texttt{Abs (Head Final)} $->\lambda x.x$\\
+           \qquad \texttt{Abs (Abs (Head (Prefix (Union (Head Final), Final))))} $->\lambda xy.xy$    
+   \end{enumerate}
+    \end{frame}
+    
+    \section{Conclusion}
+    \begin{frame}{Conclusion}
+    \begin{itemize}
+        \item Des types intersection non-idempotents pour un algorithme d'\emph{inhabitation} décidable
+        \item Une implémentation en OCaml tirant parti de la récursivité
+        \item Mais une complexité possiblement très grande, notamment en raison de l'utilisation massive de méthodes non récursives terminales, comme \texttt{List.map}
+        \item Aller plus loin: \emph{inhabitation} pour le $\lambda$-calcul avec patterns
+    \end{itemize}
+    \end{frame}
+    
+    \begin{frame}{Biliographie}
+    \bibliographystyle{plain}
+    \bibliography{main.bib}
+    \end{frame}
     
 \end{document}
