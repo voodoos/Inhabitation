@@ -1,5 +1,4 @@
 (* Types *)
-
 (* Simple implementation des multisets *)
 type 'a multiset =
   Empty
@@ -176,23 +175,17 @@ and alphaL x y = function
 
 let tititoto = alpha 1 2  (N(Lambda(1, L(Var(2)))))
 
-(* Max of two anf 
-let rec compAnf a b = match a, b with
-  | Omega, _ -> b
-  |  _, Omega -> a
-  | N(na), N(nb) -> N(compNf na nb)
-and compNf a b =  match a, b with
-    Lambda(ca, na), Lambda(cb, nb) -> Lambda(ca, compNf na (alphaN cb ca nb))
-  | L(la), L(lb) -> L(compLf la lb)
-  | _, _ -> failwith "Arg no Least upper bound found !"
-and compLf a b = match a, b with
-    Var(ca), Var(cb) when ca = cb -> Var(ca)
-  | App(la, anfa), App(lb, anfb) -> App((compLf la lb), (compAnf anfa anfb))
-  | _, _ -> failwith "Arg no Least upper bound found !"
 
-let rec compAnfs = function
-[] -> Omega
- | h::tl -> compAnf (N(h)) (compAnfs tl)*)
+let rec anfToString  = function
+    Omega -> "Omega"
+  | N(n) -> nToString n
+and nToString = function
+  | Lambda(x, n) -> "Lambda ("^string_of_int x^", "^nToString n^")"
+  | L(l) -> lToString l
+and lToString = function
+    Var(x) -> string_of_int x
+  | App(l, anf) -> "App("^lToString l^", "^anfToString anf^")"
+
 
 (* Max of two anf with path info*)
 let rec compAnfCouple a b = match a, b with
@@ -203,12 +196,13 @@ and compNfCouple a b =  match a, b with
     (Lambda(ca, na), pa), (Lambda(cb, nb), pb) -> let r = compNfCouple (na, pa) ((alphaN cb ca nb), pb) in
 						  (Lambda(ca, fst(r)), snd(r))
   | (L(la), pa), (L(lb), pb) -> let r = compLfCouple (la, pa) (lb, pb) in (L(fst(r)), snd(r))
-  | _, _ -> failwith "Arg no Least upper bound found !"
+  | _, _ -> failwith ("Arg no Least upper bound found !"^(nToString (fst(a)))^" "^(nToString (fst(b))))
+
 and compLfCouple a b = match a, b with
     (Var(ca), pa), (Var(cb), pb) when ca = cb -> (Var(ca), pa)
   | (App(la, anfa), pa), (App(lb, anfb), pb) -> let r = (compLfCouple (la, pa) (lb, pb))
   and r2 = compAnfCouple (anfa, pa) (anfb, pb) in (App(fst(r), fst(r2)), snd(r2))
-  | _, _ -> failwith "Arg no Least upper bound found !"
+  | _, _ -> (Var(200), End) (*failwith "Arg no Least upper bound found ! 2"*)
 
 
 
@@ -250,19 +244,10 @@ let rec stringOfEnv e =
     else "(" ^ (string_of_int x) ^ ": " ^ (stringOfMSType type0) ^ ")]"
   in "["^aux e
 
-let rec anfToString  = function
-    Omega -> "Omega"
-  | N(n) -> nToString n
-and nToString = function
-  | Lambda(x, n) -> "Lambda ("^string_of_int x^", "^nToString n^")"
-  | L(l) -> lToString l
-and lToString = function
-    Var(x) -> string_of_int x
-  | App(l, anf) -> "App("^lToString l^", "^anfToString anf^")"
 
 let rec printAnfList = function
     [] -> ()
-  | h::tl -> (print_string (nToString h));printAnfList tl
+  | h::tl -> (print_string (nToString h));(print_string ";");printAnfList tl
 
 
 
@@ -294,9 +279,6 @@ let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
       List.map (fun elt -> (Lambda(fresh, fst(elt)), Abs(snd(elt))) ) (t env type1 (fresh + 1))
     else
       List.map (fun elt -> (Lambda(fresh, fst(elt)), Abs(snd(elt))) ) (t ((fresh, type0)::env) type1 (fresh + 1))
-
- (* ATTENTION Gamma, x : [] = Gamma !!!!!!
-!!!!!!!! *)
 
   and head (env : environment) (type0 : sType) fresh = 
 
@@ -368,7 +350,7 @@ let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
       List.map2 (fun partie type0 -> t partie type0 fresh) partition (msToList type0)) partitions)) in
     
     print_string "Anf trouvees: ";
-	(*printAnfList nList;*)
+	printAnfList (List.map (fun t -> fst(t)) nList);
     
     print_string "\n";
     
@@ -384,20 +366,57 @@ let inhabitation (env: environment) (type0 : sType) (minFresh : int)  =
 
 let (a : sType) = Var('a')
 let (b : sType) = Var('b')
+let (c : sType) = Var('c')
+let (d : sType) = Var('d')
+let (e : sType) = Var('e')
 
 let afa = Cons(Fleche(Cons(a, Empty), a),Empty)
 
 let sgl i = Cons(i, Empty)
 
-
+(*
 let ex1 = inhabitation [] a 1
 let ex2 = inhabitation [(1, Cons(b, Empty))] a 1
 let ex3 = inhabitation [(1, Cons(a, Empty))] a 1
 let ex4 = inhabitation [] (Fleche(sgl a, a)) 1
+let ex4b = inhabitation [] (Fleche(Cons( a, Cons(b, Empty)), a)) 1
 let ex5 = inhabitation [] (Fleche(Cons(Fleche(Empty, a),Empty), a)) 1
 let ex6 = inhabitation [] (Fleche(Cons(a,Cons(Fleche(sgl a, a), Empty)), a)) 1
 let ex7 = inhabitation [(1, Cons(Fleche(sgl a, a), Empty))] a 2
+let ex7b = inhabitation [(1, Cons(Fleche(sgl a, a), Cons(b, Empty)))] b 2
 let ex8 = inhabitation [(1, Cons(a, afa))] a 2
 let ex9 = inhabitation [(1, afa)] (Fleche(sgl a, a)) 2
 let ex11 = inhabitation [(1, afa); (2, afa); (3, sgl a)] a 4
 let ex12 = inhabitation [] (Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a))) 1
+*)
+let ex = inhabitation [] (Fleche(Cons(Fleche(Cons(a, sgl a), a), sgl a), Fleche(sgl a, a))) 1
+
+(* let ex12 = inhabitation [] 
+  (Fleche(Cons(
+  Fleche(Cons(
+    Fleche(
+      Cons((Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a))), Empty)
+	, 
+      (Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a)))
+    ), Empty)
+, Fleche(
+      Cons((Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a))), Empty)
+	, 
+      (Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a)))
+    )), Empty),
+
+Fleche(Cons(
+    Fleche(
+      Cons((Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a))), Empty)
+	, 
+      (Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a)))
+    ), Empty)
+, Fleche(
+      Cons((Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a))), Empty)
+	, 
+      (Fleche(Cons(Fleche(Cons(a, Empty), a), Empty), Fleche(Cons(a, Empty), a)))
+    )))
+
+)
+
+ 1*)

@@ -109,7 +109,7 @@
             Tous les termes du $\lambda$-calcul sont définis \emph{modulo $\alpha$-conversion}, c'est à dire que l'on peut toujours remplacer une variable liée par une autre non-encore utilisée.
             
             \begin{equation*}
-            \text{Ainsi: } \lambda x.t =_\alpha \lambda y.t[x\sslash y] \text{ for $y$ fresh}
+            \text{Ainsi: } \lambda x.t =_\alpha \lambda y.t[x\sslash y] \text{ pour $y$ fraîche}
             \end{equation*}
         \end{definition}
         \begin{definition}[$\beta$-réduction]
@@ -131,8 +131,8 @@
                     & \Gamma_1 \vdash u : \sigma_1, \ldots \Gamma_i \vdash u : \sigma_i}
                 {\Gamma_0 + \Gamma_1 + \cdots + \Gamma_i \vdash tu : \rho}
                 \\ \\
-                \text{For types } \sigma, \tau, \rho ::= \alpha \ | \ A \rightarrow \tau \qquad A ::= [\sigma_i]_{i \in I}
-                \\ \text{And where for all } x \in \text{domain}(\Gamma_0)\cup\text{domain}(\Gamma_1) ,
+                \text{Pour les types } \sigma, \tau, \rho ::= \alpha \ | \ A \rightarrow \tau \qquad A ::= [\sigma_i]_{i \in I}
+                \\ \text{Et où pout tout } x \in \text{domain}(\Gamma_0)\cup\text{domain}(\Gamma_1) ,
                  \\  (\Gamma_0 + \Gamma_1)(x) = \Gamma_0(x) \uplus\Gamma_1(x) 
         \end{gather*}
     \end{block}
@@ -155,14 +155,14 @@
     \end{itemize}
     \end{frame}
     
-    \begin{frame}{L'algorithme}
-    
-    \begin{itemize}
-    \item $\iT(\Gamma, \sigma)$ contient toutes les anf $a$ telles qu'il existe une dérivation $\Pi \triangleright \Gamma \vdash a : \sigma$ pour laquelle $a$ est minimale. 
-    \item $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ contient toutes les anf $b$ telles que $a$ soit un sous-terme de $b$, et tel que  $a \in \iT(\Delta, \sigma) \Rightarrow b \in \iT(\Gamma + \Delta, \tau)$.
-    \item $\iTI(\Gamma, [\sigma_i]_{i \in I})$ contient toutes les anf $a = \bigvee_{i\in I}a_i$ telles que  $ \Gamma = +_{i \in I} \Gamma_i $, $ a_i \in \iT(\Gamma_i, \sigma_i)\text{ pour tout }i \in I $ et $\uparrow_{i \in I}a_i$
-    \end{itemize}
-    \end{frame}
+%    \begin{frame}{L'algorithme}
+%    
+%    \begin{itemize}
+%    \item $\iT(\Gamma, \sigma)$ contient toutes les anf $a$ telles qu'il existe une dérivation $\Pi \triangleright \Gamma \vdash a : \sigma$ pour laquelle $a$ est minimale. 
+%    \item $\iH^\Delta_a(\Gamma, \sigma) \triangleright \tau$ contient toutes les anf $b$ telles que $a$ soit un sous-terme de $b$, et tel que  $a \in \iT(\Delta, \sigma) \Rightarrow b \in \iT(\Gamma + \Delta, \tau)$.
+%    \item $\iTI(\Gamma, [\sigma_i]_{i \in I})$ contient toutes les anf $a = \bigvee_{i\in I}a_i$ telles que  $ \Gamma = +_{i \in I} \Gamma_i $, $ a_i \in \iT(\Gamma_i, \sigma_i)\text{ pour tout }i \in I $ et $\uparrow_{i \in I}a_i$
+%    \end{itemize}
+%    \end{frame}
     
     \begin{frame}{L'algorithme}
         \begin{gather*}
@@ -181,28 +181,37 @@
     \begin{frame}
         \begin{displaymath}
         \makebox[\textwidth][c]{
+        \inference[U]
+        {\inference[Head]
+            {\inference[Final]
+                {\alpha = \alpha}
+                {y \in \iH^{y:[\alpha]}_y(\emptyset, \alpha) \triangleright \alpha}
+            }
+            {y \in \iT(\{y:[\alpha]\}, \alpha)}
+        }
+        {y \in \iTI(\{y:[\alpha]\}, [\alpha])}
+        
+        \inference[F]
+        {\alpha = \alpha}
+        {xy \in \iH^{\{x:[[\alpha]->\alpha], y : [\alpha]\}}_{xc}(\emptyset, \alpha) \triangleright \alpha}
+    }
+        \end{displaymath}
+            \begin{displaymath}
+            \makebox[\textwidth][c]{
+            
+        
             \inference[Abs]
             {\inference[Abs]
                 {\inference[Head]
                     {\inference[Prefix]
-                        {\inference[Union]
-                            {\inference[Head]
-                                {\inference[Final]
-                                    {\alpha = \alpha}
-                                    {y \in \iH^{y:[\alpha]}_y(\emptyset, \alpha) \triangleright \alpha}
-                                }
-                                {y \in \iT(\{y:[\alpha]\}, \alpha)}
-                            }
-                            {y \in \iTI(\{y:[\alpha]\}, [\alpha])}
-                            \inference[Final]
-                            {\alpha = \alpha}
-                            {xy \in \iH^{\{x:[[\alpha]->\alpha], y : [\alpha]\}}_{xc}(\emptyset, \alpha) \triangleright \alpha}
+                        {
                         }
                         {xy \in \iH^{x : [[\alpha] -> \alpha]}_x(\{y:[\alpha]\}, [\alpha] -> \alpha) \triangleright \alpha}
                     }
                     {xy \in \iT(\{x : [[\alpha] -> \alpha], y : [\alpha]\}, \alpha)} \\\text{and } y \notin \iDom(\{x : [[\alpha] -> \alpha]\})}
                 {\lambda y.xy \in T(\{x : [[\alpha] -> \alpha]\}, [\alpha] -> \alpha)} \\\text{and } x \notin \iDom(\emptyset)}
             {\lambda x.\lambda y.xy \in \iT(\emptyset, [[\alpha] -> \alpha] -> [\alpha] -> \alpha)}
+        
         }
         \end{displaymath}
     \end{frame}
@@ -259,7 +268,7 @@ let rec t env type0 fresh =
       ([], Fleche(type1, type2)) -> ABS
     | (_, Fleche(type1, type2)) -> ABS@HEAD
     | (_::_, _) -> HEAD
-  | (_,_) -> []
+    | (_,_) -> []
     \end{lstlisting}
     
     \begin{multicols}{2}
@@ -299,7 +308,7 @@ let rec h env1 env2 lf type1 type2 fresh =
         
         \heading{Final}
         \begin{displaymath}
-        \inference[(FINAL)]{\sigma = \tau}{a \in \iH^{\Delta}_a(\emptyset, \sigma) \triangleright \tau}
+        \inference[]{\sigma = \tau}{a \in \iH^{\Delta}_a(\emptyset, \sigma) \triangleright \tau}
         \end{displaymath}
     \end{frame}
     
@@ -337,7 +346,7 @@ let rec h env1 env2 lf type1 type2 fresh =
         \inference[]{(a_i \in \iT(\Gamma_i, \sigma_i))_{i \in I} & \uparrow_{i \in I}a_i}{ \bigvee_{i \in I} a_i \in \iTI(+_{i \in I}\Gamma_i, [\sigma_i]_{i \in I}) }
     \end{displaymath}
     
-    \heading{Calcul de la least-upper-bound}
+    \heading{Calcul de la borne supérieure}
     \begin{gather*}
         \text{For all terms }t,\ \Omega \vee t = t \vee \Omega = t 
         \\
@@ -354,17 +363,17 @@ let rec h env1 env2 lf type1 type2 fresh =
        \item $\Gamma = \{(x:[\beta])\}$ and $\sigma = \alpha$: No results
        \item $\Gamma = \{(x:[\alpha])\}$ and $\sigma = \alpha$:
            \qquad\texttt{Head Final} $->x$ 
-    
+    \pause
        \item $\Gamma = \emptyset$ and $\sigma = [\alpha] -> \alpha$:
            \qquad \texttt{Abs (Head Final)} $->\lambda x.x$ 
-       
+       \pause
               \item $\Gamma = \emptyset$ and $\sigma = [\alpha,\ [\alpha] -> \alpha] -> \alpha$: \\
                    \texttt{Abs (Head (Prefix (Union (Head Final), Final)))}  $->\lambda x.xx$
-                  
+        \pause
        \item $\Gamma = \emptyset$ and $\sigma = [[] -> \alpha] -> \alpha$:\\
            \qquad \texttt{Abs (Head (Prefix (Union End, Final)))}  $->\lambda x.x\Omega$
        
-       
+       \pause
 %       \item $\Gamma = \{(x:[[\alpha] -> \alpha])\}$ and $\sigma = \alpha$: No results 
        
 %       \item $\Gamma = \{(x:[\alpha,\ [\alpha] -> \alpha])\}$ and $\sigma = \alpha$: \\
@@ -373,7 +382,7 @@ let rec h env1 env2 lf type1 type2 fresh =
        \item $\Gamma = \{(x:[[\alpha] -> \alpha])\}$ and $\sigma = [\alpha] -> \alpha$: \\
            \qquad \texttt{Head Final} $->x$\\
             \texttt{Abs (Head (Prefix (Union (Head Final), Final)))} $->\lambda y.xy$
-       
+       \pause
 %%       \item $\Gamma = \{(x:[[\alpha] -> \alpha]),\ (x':[[\alpha] -> \alpha]),\ y:[\alpha]\}$ and $\sigma = [\alpha]$:\\
 %           \qquad \texttt{Head (Prefix (Union (Head (Prefix (Union (Head Final), Final))), Final))} $-> x(x'y)$\\
 %           \qquad \texttt{Head (Prefix (Union (Head (Prefix (Union (Head Final), Final))), Final))} $-> x'(xy)$\\
